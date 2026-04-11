@@ -1,0 +1,6 @@
+import 'package:crm/app/app.dart';
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const CrmApp());
+}
