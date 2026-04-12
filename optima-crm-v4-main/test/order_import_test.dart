@@ -1,5 +1,6 @@
 import 'package:crm/data/mock_backend.dart';
 import 'package:crm/features/order_import.dart';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -165,5 +166,15 @@ void main() {
     expect(imported.lines.length, 2);
     expect(imported.lines.last.lookup, 'AirPods Pro');
     expect(imported.lines.last.quantity, 4);
+  });
+
+  test('parses xml from sample file', () {
+    final raw = File('samples/order_import_simple.xml').readAsStringSync();
+    final imported = parseImportedOrder(raw);
+
+    expect(imported.clientName, 'Tech Store');
+    expect(imported.lines.length, 2);
+    expect(imported.lines.first.lookup, 'SKU-004');
+    expect(imported.lines.first.quantity, 2);
   });
 }

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:crm/domain/entities/entities.dart';
 import 'package:xml/xml.dart';
@@ -53,7 +53,7 @@ ImportedOrderData parseImportedOrder(String raw) {
       headerIndex == null ? const <String>[] : _splitRow(rows[headerIndex], delimiter);
   final hasHeader = headerIndex != null;
   final headers = hasHeader
-      ? headerCells.map(_normalizeToken).toList(growable: false)
+      ? headerCells.map(_normalizeHeaderKey).toList(growable: false)
       : const <String>[];
   final dataRows = hasHeader ? rows.skip(headerIndex + 1) : rows;
 
@@ -77,44 +77,65 @@ ImportedOrderData parseImportedOrder(String raw) {
         'clientname',
         'company',
         'customer',
+        'buyer',
         'клиент',
         'контрагент',
         'компания',
+        'покупатель',
+        'заказчик',
       ]);
       paymentStatus ??= _parsePaymentStatus(
         _readMappedValue(map, const [
           'payment',
           'paymentstatus',
+          'paid',
           'status',
           'оплата',
-          'статус оплаты',
+          'статус',
+          'оплачено',
         ]),
       );
       comment ??= _readMappedValue(map, const [
         'comment',
         'note',
         'notes',
+        'remark',
+        'memo',
         'комментарий',
         'примечание',
+        'заметка',
       ]);
 
       final lookup = _readMappedValue(map, const [
         'sku',
+        'vendorcode',
+        'article',
         'code',
+        'productcode',
         'product',
         'productname',
+        'goodsname',
+        'goods',
         'name',
+        'title',
         'item',
-        'товар',
-        'наименование',
         'номенклатура',
+        'наименование',
+        'название',
+        'товар',
         'артикул',
+        'код',
       ]);
       final quantityValue = _readMappedValue(map, const [
         'qty',
         'quantity',
+        'amount',
         'count',
         'pcs',
+        'pieces',
+        'number',
+        'колво',
+        'кол',
         'количество',
         'шт',
       ]);
@@ -404,18 +425,20 @@ ImportedOrderData? _tryParseImportedOrderXml(String raw) {
 
 List<ImportedOrderLine> _extractXmlLines(XmlDocument document) {
   final lines = <ImportedOrderLine>[];
-  final uniqueKeys = <String>{};
+  // Deduplicate only by (lookup, quantity, position) — allow same product
+  // with same qty if it appears in distinct XML elements (real separate lines).
+  // We use a simple seen-set keyed by element identity to avoid re-visiting
+  // the same logical node via ancestor traversal, but allow truly distinct rows.
+  final seenElements = <XmlElement>{};
 
   for (final element in document.descendants.whereType<XmlElement>()) {
+    if (!seenElements.add(element)) continue;
     final map = _xmlElementToFieldMap(element);
     final lookup = _readMappedValue(map, _xmlLookupAliases);
     final quantity = _parseQuantity(_readMappedValue(map, _xmlQuantityAliases));
     if (lookup == null || lookup.trim().isEmpty || quantity == null) continue;
 
-    final dedupe = '${_normalizeToken(lookup)}#$quantity';
-    if (uniqueKeys.add(dedupe)) {
-      lines.add(ImportedOrderLine(lookup: lookup.trim(), quantity: quantity));
-    }
+    lines.add(ImportedOrderLine(lookup: lookup.trim(), quantity: quantity));
   }
 
   return lines;
@@ -462,7 +485,7 @@ String _normalizeXmlName(String value) => value
     .toLowerCase()
     .replaceAll('-', '')
     .replaceAll('_', '')
-    .replaceAll(RegExp(r'[^a-zа-я0-9]'), '')
+    .replaceAll(RegExp(r'[^a-zа-яё0-9]'), '')
     .trim();
 
 String _detectDelimiter(String row) {
@@ -696,42 +719,75 @@ List<String> _splitRow(String row, String delimiter) {
 }
 
 bool _looksLikeHeader(List<String> cells) {
-  final joined = cells.map(_normalizeToken).join('|');
+  final joined = cells.map(_normalizeHeaderKey).join('|');
   return joined.contains('product') ||
+      joined.contains('goods') ||
       joined.contains('sku') ||
+      joined.contains('article') ||
+      joined.contains('vendorcode') ||
       joined.contains('qty') ||
       joined.contains('quantity') ||
+      joined.contains('amount') ||
       joined.contains('client') ||
+      joined.contains('customer') ||
+      joined.contains('наименование') ||
+      joined.contains('название') ||
+      joined.contains('номенклатура') ||
       joined.contains('товар') ||
+      joined.contains('артикул') ||
       joined.contains('клиент') ||
-      joined.contains('количество');
+      joined.contains('количество') ||
+      joined.contains('колво') ||
+      joined.contains('кол');
 }
 
 bool _hasOrderColumns(List<String> headers) {
-  final headerSet = headers.toSet();
-  final hasProduct = headerSet.contains('product') ||
-      headerSet.contains('productname') ||
-      headerSet.contains('item') ||
-      headerSet.contains('name') ||
-      headerSet.contains('sku') ||
-      headerSet.contains('code') ||
-      headerSet.contains('товар') ||
-      headerSet.contains('наименование') ||
-      headerSet.contains('номенклатура') ||
-      headerSet.contains('артикул');
-  final hasQty = headerSet.contains('qty') ||
-      headerSet.contains('quantity') ||
-      headerSet.contains('count') ||
-      headerSet.contains('pcs') ||
-      headerSet.contains('количество') ||
-      headerSet.contains('шт');
+  bool headerContains(String keyword) =>
+      headers.any((h) => h == keyword || h.contains(keyword));
+  final hasProduct = headerContains('product') ||
+      headerContains('goods') ||
+      headerContains('sku') ||
+      headerContains('article') ||
+      headerContains('vendorcode') ||
+      headerContains('code') ||
+      headerContains('name') ||
+      headerContains('item') ||
+      headerContains('title') ||
+      headerContains('номенклатура') ||
+      headerContains('наименование') ||
+      headerContains('название') ||
+      headerContains('товар') ||
+      headerContains('артикул') ||
+      headerContains('код');
+  final hasQty = headerContains('qty') ||
+      headerContains('quantity') ||
+      headerContains('amount') ||
+      headerContains('count') ||
+      headerContains('pcs') ||
+      headerContains('pieces') ||
+      headerContains('number') ||
+      headerContains('количество') ||
+      headerContains('колво') ||
+      headerContains('кол') ||
+      headerContains('шт');
   return hasProduct && hasQty;
 }
 
 String? _readMappedValue(Map<String, String> map, List<String> aliases) {
+  // 1. Exact match
   for (final alias in aliases) {
     final value = map[alias];
     if (value != null && value.trim().isNotEmpty) return value.trim();
+  }
+  // 2. Partial match: normalized key contains alias
+  //    Handles "Наименование товара"→"наименованиетовара" matching alias "наименование"
+  //    Handles "Кол-во"→"колво" matching alias "колво" or "кол"
+  for (final alias in aliases) {
+    for (final entry in map.entries) {
+      if (entry.key.contains(alias) && entry.value.trim().isNotEmpty) {
+        return entry.value.trim();
+      }
+    }
   }
   return null;
 }
@@ -772,3 +828,19 @@ String _normalizeToken(String value) => value
     .replaceAll(RegExp("[\"'`]+"), '')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
+
+/// Aggressive normalization for column header keys.
+/// Strips everything except Latin letters, Cyrillic letters and digits.
+/// "Наименование товара" → "наименованиетовара"
+/// "Кол-во"             → "колво"
+/// "SKU / Артикул"      → "скуартикул" (latin + cyrillic)
+String _normalizeHeaderKey(String value) => value
+    .toLowerCase()
+    .replaceAll('\ufeff', '')
+    .replaceAll('\u200b', '')
+    .replaceAll('\u200c', '')
+    .replaceAll('\u200d', '')
+    .replaceAll('\u2060', '')
+    .replaceAll(RegExp(r'[^a-zа-яё0-9]'), '')
+    .trim();
+

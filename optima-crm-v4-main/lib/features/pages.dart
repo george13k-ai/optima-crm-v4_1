@@ -1,16 +1,19 @@
-﻿import 'dart:io';
+﻿import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:crm/domain/entities/entities.dart';
 import 'package:crm/features/cubits.dart';
-import 'package:crm/features/google_sheets_auth.dart';
 import 'package:crm/features/order_import.dart';
+import 'package:crm/features/qwen_xml_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 
 String money(num v) => NumberFormat.currency(
       locale: 'ru_RU',
@@ -65,7 +68,7 @@ class LoginPage extends StatelessWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: const [
-                          _MiniBadge(icon: Icons.table_chart_outlined, label: 'Импорт из Google Sheets'),
+                          _MiniBadge(icon: Icons.table_chart_outlined, label: 'Импорт XML'),
                           _MiniBadge(icon: Icons.inventory_2_outlined, label: 'Остатки и SKU'),
                           _MiniBadge(icon: Icons.receipt_long_outlined, label: 'Заказы и прибыль'),
                         ],
@@ -283,7 +286,7 @@ class ProductsPage extends StatelessWidget {
 
 class CreateOrderPage extends StatelessWidget {
   const CreateOrderPage({super.key});
-  static const MethodChannel _xmlPickerChannel = MethodChannel('crm/xml_picker');
+  static const MethodChannel _importPickerChannel = MethodChannel('crm/import_picker');
 
   @override
   Widget build(BuildContext context) {
@@ -322,8 +325,8 @@ class CreateOrderPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const _SectionTitle(
-                          title: 'Импорт из Google Sheets',
-                          subtitle: 'Можно вставить как содержимое таблицы, так и публичную ссылку на Google Sheets.',
+                          title: 'Импорт заказа',
+                          subtitle: 'Импортируйте XML файл или вставьте строки таблицы вручную.',
                         ),
                         const SizedBox(height: 14),
                         Wrap(
@@ -333,7 +336,7 @@ class CreateOrderPage extends StatelessWidget {
                             FilledButton.tonalIcon(
                               onPressed: () => _showImportDialog(context),
                               icon: const Icon(Icons.content_paste_go_rounded),
-                              label: const Text('Вставить таблицу или ссылку'),
+                              label: const Text('Импорт XML / таблицы'),
                             ),
                             OutlinedButton.icon(
                               onPressed: () => context.go('/products'),
@@ -383,7 +386,7 @@ class CreateOrderPage extends StatelessWidget {
                         ? const _EmptyPanel(
                             icon: Icons.shopping_cart_outlined,
                             title: 'Черновик пока пуст',
-                            subtitle: 'Добавьте товары вручную или импортируйте таблицу из Google Sheets.',
+                            subtitle: 'Добавьте товары вручную или импортируйте XML/таблицу.',
                           )
                         : ListView.separated(
                             padding: EdgeInsets.zero,
@@ -426,7 +429,7 @@ class CreateOrderPage extends StatelessWidget {
     final imported = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Импорт из Google Sheets'),
+        title: const Text('Импорт заказа'),
         content: SizedBox(
           width: 620,
           child: Column(
@@ -434,7 +437,7 @@ class CreateOrderPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Вставьте ссылку, текст таблицы или выберите XML файл заказа.',
+                'Вставьте ссылку на Google Sheets, строки таблицы или выберите файл XML/XLS/XLSX. Таблица должна быть открыта для просмотра всем.',
                 style: TextStyle(height: 1.4),
               ),
               const SizedBox(height: 12),
@@ -443,7 +446,7 @@ class CreateOrderPage extends StatelessWidget {
                 minLines: 10,
                 maxLines: 16,
                 decoration: const InputDecoration(
-                  hintText: 'Например: ссылка docs.google.com/... или строки таблицы с колонками Товар / SKU / Количество',
+                  hintText: 'https://docs.google.com/spreadsheets/d/... или строки с колонками Товар / SKU / Количество',
                 ),
               ),
             ],
@@ -451,9 +454,9 @@ class CreateOrderPage extends StatelessWidget {
         ),
         actions: [
           OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).pop('__pick_xml_file__'),
+            onPressed: () => Navigator.of(context).pop('__pick_import_file__'),
             icon: const Icon(Icons.upload_file_rounded),
-            label: const Text('XML файл'),
+            label: const Text('Файл XML/XLS'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -471,9 +474,9 @@ class CreateOrderPage extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     var importInput = imported;
-    if (importInput == '__pick_xml_file__') {
+    if (importInput == '__pick_import_file__') {
       try {
-        importInput = await _pickXmlFileText();
+        importInput = await _pickImportFilePayload();
       } on FormatException catch (e) {
         if (!context.mounted) return;
         messenger.showSnackBar(
@@ -491,49 +494,28 @@ class CreateOrderPage extends StatelessWidget {
 
     try {
       var importPayload = importInput.trim();
-      final linkUris = googleSheetsCsvUris(importPayload);
-      if (linkUris.isNotEmpty) {
-        String? loadedBody;
-        for (final linkUri in linkUris) {
-          try {
-            final response = await Dio().getUri<String>(
-              linkUri,
-              options: Options(
-                responseType: ResponseType.plain,
-                followRedirects: true,
-                validateStatus: (status) =>
-                    status != null && status >= 200 && status < 400,
-                headers: const {
-                  'User-Agent':
-                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
-                  'Accept':
-                      'text/csv,text/tab-separated-values,text/plain,application/json,text/html;q=0.9,*/*;q=0.8',
-                },
-              ),
-            );
-            final body = response.data?.trim();
-            final normalizedBody =
-                body == null ? null : normalizeImportedTablePayload(body);
-            if (normalizedBody != null && normalizedBody.isNotEmpty) {
-              loadedBody = normalizedBody;
-              break;
-            }
-          } on DioException {
-            continue;
-          }
+
+      // If user pasted a Google Sheets URL, fetch the data first
+      final sheetUrls = googleSheetsCsvUris(importPayload);
+      if (sheetUrls.isNotEmpty) {
+        final fetched = await _fetchGoogleSheetPayload(sheetUrls);
+        if (fetched != null && fetched.trim().isNotEmpty) {
+          importPayload = fetched.trim();
+        } else {
+          throw const FormatException(
+            'Не удалось загрузить данные из Google Sheets. '
+            'Убедитесь, что таблица открыта для просмотра всем (File → Share → Anyone with the link → Viewer).',
+          );
         }
-        if (loadedBody == null) {
-          final authResult =
-              await GoogleSheetsAuthLoader.instance.loadViaGoogleAuth(linkUris);
-          loadedBody = authResult.payload;
-          if (loadedBody == null) {
-            throw FormatException(
-              authResult.errorMessage ??
-                  'Не удалось прочитать таблицу по ссылке даже после входа через Google.',
-            );
-          }
+      }
+
+      if (_looksLikeXmlPayload(importPayload) ||
+          _looksLikeTabularPayload(importPayload)) {
+        final qwenNormalized =
+            await QwenXmlService.instance.tryNormalizePayload(importPayload);
+        if (qwenNormalized != null && qwenNormalized.trim().isNotEmpty) {
+          importPayload = qwenNormalized.trim();
         }
-        importPayload = loadedBody;
       }
 
       final message = draftCubit.importTableText(
@@ -553,26 +535,129 @@ class CreateOrderPage extends StatelessWidget {
     }
   }
 
-  Future<String> _pickXmlFileText() async {
+  Future<String> _pickImportFilePayload() async {
     if (!Platform.isAndroid) {
       throw const FormatException(
-        '????? XML ????? ?????? ?????????????? ?????? ?? Android.',
+        'Выбор файла сейчас поддерживается только на Android.',
       );
     }
 
-    final raw = await _xmlPickerChannel.invokeMethod<String>('pickXmlText');
-    if (raw == null) {
-      throw const FormatException('????? ????? ???????.');
+    final raw =
+        await _importPickerChannel.invokeMethod<dynamic>('pickImportFile');
+    if (raw == null || raw is! Map) {
+      throw const FormatException('Выбор файла отменён.');
     }
 
-    final decoded = raw.trim();
-    if (decoded.isEmpty) {
-      throw const FormatException('XML ???? ??????.');
+    final fileName = (raw['fileName'] ?? '').toString().trim();
+    final bytesBase64 = (raw['bytesBase64'] ?? '').toString().trim();
+    if (bytesBase64.isEmpty) {
+      throw const FormatException('Файл пустой или не читается.');
     }
-    if (!decoded.contains('<') || !decoded.contains('>')) {
-      throw const FormatException('????????? ???? ?? ????? ?? XML.');
+
+    Uint8List bytes;
+    try {
+      bytes = base64Decode(bytesBase64);
+    } catch (_) {
+      throw const FormatException('Не удалось декодировать содержимое файла.');
     }
-    return decoded;
+    if (bytes.isEmpty) {
+      throw const FormatException('Файл пустой.');
+    }
+
+    final ext = _fileExtension(fileName);
+    if (ext == 'xml') {
+      final decoded = utf8.decode(bytes, allowMalformed: true).trim();
+      if (decoded.isEmpty) {
+        throw const FormatException('XML файл пустой.');
+      }
+      if (!_looksLikeXmlPayload(decoded)) {
+        throw const FormatException('Выбранный файл не похож на XML.');
+      }
+      return decoded;
+    }
+
+    if (ext == 'xlsx' || ext == 'xls') {
+      final tableText = _decodeSpreadsheetToTable(bytes);
+      if (tableText == null || tableText.trim().isEmpty) {
+        if (ext == 'xls') {
+          final normalized = await QwenXmlService.instance
+              .tryNormalizeBinarySpreadsheet(fileName: fileName, bytes: bytes);
+          if (normalized != null && normalized.trim().isNotEmpty) {
+            return normalized;
+          }
+        }
+        throw const FormatException('Не удалось прочитать таблицу из Excel файла.');
+      }
+      return tableText;
+    }
+
+    final plainText = utf8.decode(bytes, allowMalformed: true).trim();
+    if (plainText.isNotEmpty) return plainText;
+    throw const FormatException('Поддерживаются файлы XML, XLSX и XLS.');
+  }
+
+  bool _looksLikeXmlPayload(String value) {
+    final trimmed = value.trimLeft().toLowerCase();
+    return trimmed.startsWith('<') || trimmed.startsWith('<?xml');
+  }
+
+  bool _looksLikeTabularPayload(String value) {
+    return value.contains('\t') || value.contains(',') || value.contains(';');
+  }
+
+  String _fileExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot + 1 >= fileName.length) return '';
+    return fileName.substring(dot + 1).toLowerCase();
+  }
+
+  String? _decodeSpreadsheetToTable(Uint8List bytes) {
+    try {
+      final decoder = SpreadsheetDecoder.decodeBytes(bytes);
+      if (decoder.tables.isEmpty) return null;
+      final firstTable = decoder.tables.values.first;
+      final rows = <String>[];
+      for (final row in firstTable.rows) {
+        final cells = row
+            .map((cell) => (cell ?? '').toString().replaceAll('\n', ' ').trim())
+            .toList(growable: false);
+        if (cells.every((cell) => cell.isEmpty)) continue;
+        rows.add(cells.join('\t'));
+      }
+      return rows.isEmpty ? null : rows.join('\n');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _fetchGoogleSheetPayload(List<Uri> urls) async {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+      followRedirects: true,
+      maxRedirects: 5,
+    ));
+
+    for (final url in urls) {
+      try {
+        final response = await dio.getUri<String>(
+          url,
+          options: Options(responseType: ResponseType.plain),
+        );
+        final body = response.data;
+        if (body == null || body.trim().isEmpty) continue;
+
+        final normalized = normalizeImportedTablePayload(body);
+        if (normalized != null && normalized.trim().isNotEmpty) {
+          return normalized.trim();
+        }
+      } on DioException {
+        continue;
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
   }
 
   Widget _summaryRow(String label, String value) {
@@ -1392,5 +1477,7 @@ class _Logo extends StatelessWidget {
     );
   }
 }
+
+
 
 

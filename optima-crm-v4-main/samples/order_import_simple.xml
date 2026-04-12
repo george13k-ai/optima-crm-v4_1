@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<order>
+  <client>Tech Store</client>
+  <paymentStatus>paid</paymentStatus>
+  <comment>Тестовый импорт</comment>
+  <items>
+    <item>
+      <sku>SKU-004</sku>
+      <qty>2</qty>
+    </item>
+    <item>
+      <productName>Galaxy S24</productName>
+      <quantity>1</quantity>
+    </item>
+  </items>
+</order>
