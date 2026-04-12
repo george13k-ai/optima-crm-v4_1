@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -16,20 +16,20 @@ import 'package:intl/intl.dart';
 import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 
 String money(num v) => NumberFormat.currency(
-      locale: 'ru_RU',
-      symbol: '₽',
-      decimalDigits: 0,
-    ).format(v);
+  locale: 'ru_RU',
+  symbol: '₽',
+  decimalDigits: 0,
+).format(v);
 
 String date(DateTime v) => DateFormat('dd.MM.yyyy HH:mm').format(v);
 String pStatus(PaymentStatus p) =>
     p == PaymentStatus.paid ? 'Оплачено' : 'Ожидает оплаты';
 String stockStatus(Product p) => switch (p.status) {
-      ProductAvailabilityStatus.inStock => 'В наличии',
-      ProductAvailabilityStatus.lowStock => 'Мало на складе',
-      ProductAvailabilityStatus.outOfStock => 'Нет в наличии',
-      ProductAvailabilityStatus.newProduct => 'Новинка',
-    };
+  ProductAvailabilityStatus.inStock => 'В наличии',
+  ProductAvailabilityStatus.lowStock => 'Мало на складе',
+  ProductAvailabilityStatus.outOfStock => 'Нет в наличии',
+  ProductAvailabilityStatus.newProduct => 'Новинка',
+};
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -54,9 +54,8 @@ class LoginPage extends StatelessWidget {
                       const SizedBox(height: 20),
                       Text(
                         'Оптима CRM',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 10),
                       const Text(
@@ -68,9 +67,18 @@ class LoginPage extends StatelessWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: const [
-                          _MiniBadge(icon: Icons.table_chart_outlined, label: 'Импорт Google Sheets'),
-                          _MiniBadge(icon: Icons.inventory_2_outlined, label: 'Остатки и SKU'),
-                          _MiniBadge(icon: Icons.receipt_long_outlined, label: 'Заказы и прибыль'),
+                          _MiniBadge(
+                            icon: Icons.table_chart_outlined,
+                            label: 'Импорт Google Sheets',
+                          ),
+                          _MiniBadge(
+                            icon: Icons.inventory_2_outlined,
+                            label: 'Остатки и SKU',
+                          ),
+                          _MiniBadge(
+                            icon: Icons.receipt_long_outlined,
+                            label: 'Заказы и прибыль',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -118,14 +126,35 @@ class ShellScaffold extends StatelessWidget {
                 backgroundColor: const Color(0xFF0F1823).withValues(alpha: 0.9),
                 selectedIndex: index,
                 onDestinationSelected: (i) => context.go(
-                  ['/dashboard', '/products', '/orders', '/clients', '/stock'][i],
+                  [
+                    '/dashboard',
+                    '/products',
+                    '/orders',
+                    '/clients',
+                    '/stock',
+                  ][i],
                 ),
                 destinations: const [
-                  NavigationDestination(icon: Icon(Icons.space_dashboard_outlined), label: 'Главная'),
-                  NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Товары'),
-                  NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Заказы'),
-                  NavigationDestination(icon: Icon(Icons.people_outline), label: 'Клиенты'),
-                  NavigationDestination(icon: Icon(Icons.warehouse_outlined), label: 'Склад'),
+                  NavigationDestination(
+                    icon: Icon(Icons.space_dashboard_outlined),
+                    label: 'Главная',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.inventory_2_outlined),
+                    label: 'Товары',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.receipt_long_outlined),
+                    label: 'Заказы',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.people_outline),
+                    label: 'Клиенты',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.warehouse_outlined),
+                    label: 'Склад',
+                  ),
                 ],
               ),
             ),
@@ -163,10 +192,30 @@ class DashboardPage extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _StatCard(title: 'Заказы', value: '${stats.ordersCount}', hint: 'Всего создано', icon: Icons.receipt_long_outlined),
-                  _StatCard(title: 'Выручка', value: money(stats.totalSales), hint: 'Сумма продаж', icon: Icons.currency_ruble_rounded),
-                  _StatCard(title: 'Не оплачено', value: '${stats.unpaidOrdersCount}', hint: 'Требует контроля', icon: Icons.pending_actions_outlined),
-                  _StatCard(title: 'Низкий остаток', value: '${stats.lowStockCount}', hint: 'Нужна закупка', icon: Icons.warning_amber_rounded),
+                  _StatCard(
+                    title: 'Заказы',
+                    value: '${stats.ordersCount}',
+                    hint: 'Всего создано',
+                    icon: Icons.receipt_long_outlined,
+                  ),
+                  _StatCard(
+                    title: 'Выручка',
+                    value: money(stats.totalSales),
+                    hint: 'Сумма продаж',
+                    icon: Icons.currency_ruble_rounded,
+                  ),
+                  _StatCard(
+                    title: 'Не оплачено',
+                    value: '${stats.unpaidOrdersCount}',
+                    hint: 'Требует контроля',
+                    icon: Icons.pending_actions_outlined,
+                  ),
+                  _StatCard(
+                    title: 'Низкий остаток',
+                    value: '${stats.lowStockCount}',
+                    hint: 'Нужна закупка',
+                    icon: Icons.warning_amber_rounded,
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -176,16 +225,29 @@ class DashboardPage extends StatelessWidget {
                   children: [
                     const _SectionTitle(
                       title: 'Быстрые действия',
-                      subtitle: 'Частые сценарии, чтобы не переключаться между экранами вручную.',
+                      subtitle:
+                          'Частые сценарии, чтобы не переключаться между экранами вручную.',
                     ),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        _QuickActionButton(icon: Icons.add_shopping_cart_rounded, label: 'Создать заказ', onTap: () => context.push('/create-order')),
-                        _QuickActionButton(icon: Icons.inventory_2_outlined, label: 'Открыть товары', onTap: () => context.go('/products')),
-                        _QuickActionButton(icon: Icons.receipt_long_outlined, label: 'История заказов', onTap: () => context.go('/orders')),
+                        _QuickActionButton(
+                          icon: Icons.add_shopping_cart_rounded,
+                          label: 'Создать заказ',
+                          onTap: () => context.push('/create-order'),
+                        ),
+                        _QuickActionButton(
+                          icon: Icons.inventory_2_outlined,
+                          label: 'Открыть товары',
+                          onTap: () => context.go('/products'),
+                        ),
+                        _QuickActionButton(
+                          icon: Icons.receipt_long_outlined,
+                          label: 'История заказов',
+                          onTap: () => context.go('/orders'),
+                        ),
                       ],
                     ),
                   ],
@@ -229,16 +291,39 @@ class ProductsPage extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final vertical = constraints.maxWidth < 560;
+                      final categories = s.items
+                          .map((e) => e.category)
+                          .toSet()
+                          .toList(growable: false);
+                      final brands = s.items
+                          .map((e) => e.brand)
+                          .toSet()
+                          .toList(growable: false);
+                      // key forces widget recreation when the selected value
+                      // changes externally (e.g. filter cleared from cubit),
+                      // so initialValue is re-applied on every state change.
                       final categoryField = DropdownButtonFormField<String>(
-                        initialValue: s.category,
+                        key: ValueKey('cat-${s.category}'),
+                        initialValue:
+                            categories.contains(s.category) ? s.category : null,
                         hint: const Text('Категория'),
-                        items: s.items.map((e) => e.category).toSet().map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(growable: false),
+                        items: categories
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
+                            .toList(growable: false),
                         onChanged: context.read<ProductsCubit>().setCategory,
                       );
                       final brandField = DropdownButtonFormField<String>(
-                        initialValue: s.brand,
+                        key: ValueKey('brand-${s.brand}'),
+                        initialValue:
+                            brands.contains(s.brand) ? s.brand : null,
                         hint: const Text('Бренд'),
-                        items: s.items.map((e) => e.brand).toSet().map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(growable: false),
+                        items: brands
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
+                            .toList(growable: false),
                         onChanged: context.read<ProductsCubit>().setBrand,
                       );
                       if (vertical) {
@@ -268,13 +353,15 @@ class ProductsPage extends StatelessWidget {
                   ? const _EmptyPanel(
                       icon: Icons.search_off_rounded,
                       title: 'Ничего не найдено',
-                      subtitle: 'Измените фильтры или попробуйте другой поисковый запрос.',
+                      subtitle:
+                          'Измените фильтры или попробуйте другой поисковый запрос.',
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.only(bottom: 124),
                       itemCount: s.filtered.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (_, i) => _ProductTile(product: s.filtered[i]),
+                      itemBuilder: (_, i) =>
+                          _ProductTile(product: s.filtered[i]),
                     ),
             ),
           ],
@@ -286,7 +373,9 @@ class ProductsPage extends StatelessWidget {
 
 class CreateOrderPage extends StatelessWidget {
   const CreateOrderPage({super.key});
-  static const MethodChannel _importPickerChannel = MethodChannel('crm/import_picker');
+  static const MethodChannel _importPickerChannel = MethodChannel(
+    'crm/import_picker',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -308,92 +397,157 @@ class CreateOrderPage extends StatelessWidget {
                   context.read<StockCubit>().load();
                   context.read<DashboardCubit>().load();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Заказ ${createdOrder.orderNumber} успешно создан.')),
+                    SnackBar(
+                      content: Text(
+                        'Заказ ${createdOrder.orderNumber} успешно создан.',
+                      ),
+                    ),
                   );
                   context.go('/orders');
                 }
                 if (s.error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(s.error!)),
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Ошибка'),
+                      content: Text(
+                        s.error!,
+                        style: const TextStyle(height: 1.5),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('ОК'),
+                        ),
+                      ],
+                    ),
                   );
                 }
               },
               builder: (context, s) => Column(
                 children: [
-                  _Panel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _SectionTitle(
-                          title: 'Импорт заказа',
-                          subtitle: 'Импортируйте публичную Google Sheets ссылку, XML/XLSX файл или вставьте строки таблицы.',
-                        ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            FilledButton.tonalIcon(
-                              onPressed: () => _showImportDialog(context),
-                              icon: const Icon(Icons.content_paste_go_rounded),
-                              label: const Text('Импорт ссылки / файла'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => context.go('/products'),
-                              icon: const Icon(Icons.inventory_2_outlined),
-                              label: const Text('Добавить товары вручную'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _Panel(
-                    child: Column(
-                      children: [
-                        BlocBuilder<ClientsCubit, List<Client>>(
-                          builder: (_, clients) => DropdownButtonFormField<String>(
-                            initialValue: s.client?.id,
-                            hint: const Text('Клиент'),
-                            items: clients.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(growable: false),
-                            onChanged: (id) => context.read<OrderDraftCubit>().pickClient(
-                                  clients.where((c) => c.id == id).firstOrNull,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<PaymentStatus>(
-                          initialValue: s.paymentStatus,
-                          items: PaymentStatus.values.map((e) => DropdownMenuItem(value: e, child: Text(pStatus(e)))).toList(growable: false),
-                          onChanged: (v) => context.read<OrderDraftCubit>().setPayment(v ?? PaymentStatus.unpaid),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          key: ValueKey('comment-${s.comment}'),
-                          initialValue: s.comment,
-                          onChanged: context.read<OrderDraftCubit>().setComment,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: const InputDecoration(labelText: 'Комментарий к заказу'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   Expanded(
-                    child: s.lines.isEmpty
-                        ? const _EmptyPanel(
-                            icon: Icons.shopping_cart_outlined,
-                            title: 'Черновик пока пуст',
-                            subtitle: 'Добавьте товары вручную или импортируйте Google Sheets/XML/таблицу.',
-                          )
-                        : ListView.separated(
-                            padding: EdgeInsets.zero,
-                            itemCount: s.lines.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 12),
-                            itemBuilder: (_, i) => _DraftLineTile(line: s.lines[i]),
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: _Panel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _SectionTitle(
+                                  title: 'Импорт заказа',
+                                  subtitle:
+                                      'Импортируйте публичную Google Sheets ссылку, XML/XLSX файл или вставьте строки таблицы.',
+                                ),
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    FilledButton.tonalIcon(
+                                      onPressed: () =>
+                                          _showImportDialog(context),
+                                      icon: const Icon(
+                                        Icons.content_paste_go_rounded,
+                                      ),
+                                      label:
+                                          const Text('Импорт ссылки / файла'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          context.go('/products'),
+                                      icon: const Icon(
+                                        Icons.inventory_2_outlined,
+                                      ),
+                                      label:
+                                          const Text('Добавить товары вручную'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        SliverToBoxAdapter(
+                          child: _Panel(
+                            child: Column(
+                              children: [
+                                BlocBuilder<ClientsCubit, List<Client>>(
+                                  builder: (_, clients) =>
+                                      DropdownButtonFormField<String>(
+                                        initialValue: s.client?.id,
+                                        hint: const Text('Клиент'),
+                                        items: clients
+                                            .map(
+                                              (c) => DropdownMenuItem(
+                                                value: c.id,
+                                                child: Text(c.name),
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                        onChanged: (id) => context
+                                            .read<OrderDraftCubit>()
+                                            .pickClient(
+                                              clients
+                                                  .where((c) => c.id == id)
+                                                  .firstOrNull,
+                                            ),
+                                      ),
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<PaymentStatus>(
+                                  initialValue: s.paymentStatus,
+                                  items: PaymentStatus.values
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(pStatus(e)),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: (v) => context
+                                      .read<OrderDraftCubit>()
+                                      .setPayment(v ?? PaymentStatus.unpaid),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  key: ValueKey('comment-${s.comment}'),
+                                  initialValue: s.comment,
+                                  onChanged: context
+                                      .read<OrderDraftCubit>()
+                                      .setComment,
+                                  minLines: 2,
+                                  maxLines: 4,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Комментарий к заказу',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        if (s.lines.isEmpty)
+                          const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _EmptyPanel(
+                              icon: Icons.shopping_cart_outlined,
+                              title: 'Черновик пока пуст',
+                              subtitle:
+                                  'Добавьте товары вручную или импортируйте Google Sheets/XML/таблицу.',
+                            ),
+                          )
+                        else
+                          SliverList.separated(
+                            itemCount: s.lines.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (_, i) =>
+                                _DraftLineTile(line: s.lines[i]),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _Panel(
@@ -408,7 +562,8 @@ class CreateOrderPage extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed: () => context.read<OrderDraftCubit>().createOrder(),
+                            onPressed: () =>
+                                context.read<OrderDraftCubit>().createOrder(),
                             child: const Text('Подтвердить заказ'),
                           ),
                         ),
@@ -446,7 +601,8 @@ class CreateOrderPage extends StatelessWidget {
                 minLines: 10,
                 maxLines: 16,
                 decoration: const InputDecoration(
-                  hintText: 'https://docs.google.com/spreadsheets/d/... или строки с колонками Товар / SKU / Количество',
+                  hintText:
+                      'https://docs.google.com/spreadsheets/d/... или строки с колонками Товар / SKU / Количество',
                 ),
               ),
             ],
@@ -479,9 +635,7 @@ class CreateOrderPage extends StatelessWidget {
         importInput = await _pickImportFilePayload();
       } on FormatException catch (e) {
         if (!context.mounted) return;
-        messenger.showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        await _showImportError(context, e.message);
         return;
       }
     }
@@ -503,36 +657,54 @@ class CreateOrderPage extends StatelessWidget {
           importPayload = fetched.trim();
         } else {
           throw const FormatException(
-            'Не удалось загрузить данные из Google Sheets. '
-            'Убедитесь, что таблица открыта для просмотра всем (File → Share → Anyone with the link → Viewer).',
+            'Не удалось загрузить данные из Google Sheets.\n\n'
+            'Убедитесь, что таблица открыта для просмотра всем:\n'
+            'Файл → Настройки доступа → Все, у кого есть ссылка → Читатель.',
           );
         }
       }
 
       if (_looksLikeXmlPayload(importPayload) ||
           _looksLikeTabularPayload(importPayload)) {
-        final qwenNormalized =
-            await QwenXmlService.instance.tryNormalizePayload(importPayload);
+        final qwenNormalized = await QwenXmlService.instance
+            .tryNormalizePayload(importPayload);
         if (qwenNormalized != null && qwenNormalized.trim().isNotEmpty) {
           importPayload = qwenNormalized.trim();
         }
       }
 
       final message = draftCubit.importTableText(
-            raw: importPayload,
-            products: products,
-            clients: clients,
-          );
+        raw: importPayload,
+        products: products,
+        clients: clients,
+      );
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 4),
+        ),
       );
     } on FormatException catch (e) {
       if (!context.mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      await _showImportError(context, e.message);
     }
+  }
+
+  Future<void> _showImportError(BuildContext context, String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ошибка импорта'),
+        content: Text(message, style: const TextStyle(height: 1.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('ОК'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<String> _pickImportFilePayload() async {
@@ -542,8 +714,9 @@ class CreateOrderPage extends StatelessWidget {
       );
     }
 
-    final raw =
-        await _importPickerChannel.invokeMethod<dynamic>('pickImportFile');
+    final raw = await _importPickerChannel.invokeMethod<dynamic>(
+      'pickImportFile',
+    );
     if (raw == null || raw is! Map) {
       throw const FormatException('Выбор файла отменён.');
     }
@@ -586,7 +759,9 @@ class CreateOrderPage extends StatelessWidget {
             return normalized;
           }
         }
-        throw const FormatException('Не удалось прочитать таблицу из Excel файла.');
+        throw const FormatException(
+          'Не удалось прочитать таблицу из Excel файла.',
+        );
       }
       return tableText;
     }
@@ -652,8 +827,10 @@ class CreateOrderPage extends StatelessWidget {
         final response = await dio.getUri<String>(
           url,
           options: Options(
+            // Accept only successful responses; 4xx without redirect means
+            // access denied — DioException is caught below and we try next URL
             validateStatus: (status) =>
-                status != null && status >= 200 && status < 500,
+                status != null && status >= 200 && status < 300,
           ),
         );
         final body = response.data?.trim();
@@ -662,7 +839,15 @@ class CreateOrderPage extends StatelessWidget {
 
         final normalized = normalizeImportedTablePayload(body);
         if (normalized != null && normalized.trim().isNotEmpty) {
-          return normalized.trim();
+          final candidate = normalized.trim();
+          try {
+            final parsed = parseImportedOrder(candidate);
+            if (parsed.lines.isNotEmpty) {
+              return candidate;
+            }
+          } on FormatException {
+            continue;
+          }
         }
       } on DioException {
         continue;
@@ -694,24 +879,28 @@ class CreateOrderPage extends StatelessWidget {
     final docId = _extractGoogleSheetDocId(parsed);
     if (docId.isEmpty) return urls;
 
-    addAll(googleSheetsCsvUris('https://docs.google.com/spreadsheets/d/$docId/edit'));
+    addAll(
+      googleSheetsCsvUris('https://docs.google.com/spreadsheets/d/$docId/edit'),
+    );
 
     final gid = _extractGidFromUri(parsed);
     if (gid != null && gid.isNotEmpty) {
+      // GID already known — add it and skip the extra discovery request
       addAll(
         googleSheetsCsvUris(
           'https://docs.google.com/spreadsheets/d/$docId/edit?gid=$gid',
         ),
       );
-    }
-
-    final discoveredGids = await _discoverGoogleSheetGids(docId);
-    for (final discoveredGid in discoveredGids) {
-      addAll(
-        googleSheetsCsvUris(
-          'https://docs.google.com/spreadsheets/d/$docId/edit?gid=$discoveredGid',
-        ),
-      );
+    } else {
+      // No GID in URL — try to discover sheet tabs from the HTML view
+      final discoveredGids = await _discoverGoogleSheetGids(docId);
+      for (final discoveredGid in discoveredGids) {
+        addAll(
+          googleSheetsCsvUris(
+            'https://docs.google.com/spreadsheets/d/$docId/edit?gid=$discoveredGid',
+          ),
+        );
+      }
     }
 
     return urls;
@@ -724,12 +913,12 @@ class CreateOrderPage extends StatelessWidget {
     );
 
     try {
-      final response = await Dio().getUri<String>(
-        htmlUri,
-        options: Options(
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 10),
           responseType: ResponseType.plain,
           followRedirects: true,
-          validateStatus: (status) => status != null && status >= 200 && status < 400,
           headers: const {
             'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
@@ -737,8 +926,16 @@ class CreateOrderPage extends StatelessWidget {
           },
         ),
       );
+      final response = await dio.getUri<String>(
+        htmlUri,
+        options: Options(
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+      );
       final html = response.data;
       if (html == null || html.isEmpty) return const [];
+      if (_looksLikeGoogleSignInPage(html)) return const [];
 
       final gids = <String>{};
       for (final match in RegExp(r'gid=([0-9]+)').allMatches(html)) {
@@ -796,9 +993,23 @@ class CreateOrderPage extends StatelessWidget {
 
   bool _looksLikeGoogleSignInPage(String body) {
     final lower = body.toLowerCase();
-    return lower.contains('accounts.google.com') ||
-        lower.contains('servicelogin') ||
-        lower.contains('sign in') && lower.contains('google');
+    // Google redirects to sign-in or shows error pages in several forms
+    if (lower.contains('accounts.google.com')) return true;
+    if (lower.contains('servicelogin')) return true;
+    if (lower.contains('myaccount.google.com')) return true;
+    if (lower.contains('gaia_loginform')) return true;
+    if (lower.contains('signin/v2')) return true;
+    // "Access denied" error pages from Google
+    if (lower.contains('access denied') || lower.contains('access_denied')) {
+      return true;
+    }
+    // Generic sign-in page check — must have both "sign in" and "google"
+    if (lower.contains('sign in') && lower.contains('google')) return true;
+    // Short response with no data characters is likely an error page
+    if (body.length < 64 && !body.contains('\t') && !body.contains(',')) {
+      return true;
+    }
+    return false;
   }
 
   Widget _summaryRow(String label, String value) {
@@ -832,7 +1043,8 @@ class OrdersPage extends StatelessWidget {
             ? const _EmptyPanel(
                 icon: Icons.receipt_long_outlined,
                 title: 'Заказов пока нет',
-                subtitle: 'Создайте первый заказ вручную или импортируйте таблицу.',
+                subtitle:
+                    'Создайте первый заказ вручную или импортируйте таблицу.',
               )
             : ListView.separated(
                 padding: const EdgeInsets.only(bottom: 124),
@@ -869,52 +1081,99 @@ class OrderDetailsPage extends StatelessWidget {
                     title: 'Заказ не найден',
                     subtitle: 'Вернитесь к списку и откройте другой заказ.',
                   )
-                : ListView(
-                    children: [
-                      _Panel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(order.clientName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-                            const SizedBox(height: 6),
-                            Text(date(order.date), style: const TextStyle(color: Colors.white70)),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                _MiniBadge(icon: Icons.payments_outlined, label: pStatus(order.paymentStatus)),
-                                _MiniBadge(icon: Icons.currency_ruble_rounded, label: 'Сумма ${money(order.totalAmount)}'),
-                                _MiniBadge(icon: Icons.trending_up_rounded, label: 'Прибыль ${money(order.profit)}'),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...order.items.map(
-                        (item) => Padding(
+                // ListView.builder renders only visible items — essential for
+                // orders with hundreds of lines (avoids building all at once).
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemCount: order.items.length + 1,
+                    itemBuilder: (_, i) {
+                      if (i == 0) {
+                        // Header: order summary panel
+                        return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _Panel(
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                      const SizedBox(height: 6),
-                                      Text('${item.quantity} шт. x ${money(item.salePrice)}', style: const TextStyle(color: Colors.white70)),
-                                    ],
+                                Text(
+                                  order.clientName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 18,
                                   ),
                                 ),
-                                Text(money(item.lineTotal), style: const TextStyle(fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  date(order.date),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _MiniBadge(
+                                      icon: Icons.payments_outlined,
+                                      label: pStatus(order.paymentStatus),
+                                    ),
+                                    _MiniBadge(
+                                      icon: Icons.currency_ruble_rounded,
+                                      label:
+                                          'Сумма ${money(order.totalAmount)}',
+                                    ),
+                                    _MiniBadge(
+                                      icon: Icons.trending_up_rounded,
+                                      label:
+                                          'Прибыль ${money(order.profit)}',
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
+                        );
+                      }
+                      // Item rows — built lazily
+                      final item = order.items[i - 1];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _Panel(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.productName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${item.quantity} шт. x ${money(item.salePrice)}',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                money(item.lineTotal),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
           ),
         ),
@@ -939,15 +1198,26 @@ class ClientsPage extends StatelessWidget {
           itemBuilder: (_, i) => _Panel(
             child: Row(
               children: [
-                _Avatar(initial: clients[i].name.isEmpty ? 'К' : clients[i].name[0]),
+                _Avatar(
+                  initial: clients[i].name.isEmpty ? 'К' : clients[i].name[0],
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(clients[i].name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      Text(
+                        clients[i].name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(clients[i].phone, style: const TextStyle(color: Colors.white70)),
+                      Text(
+                        clients[i].phone,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                     ],
                   ),
                 ),
@@ -980,13 +1250,22 @@ class StockPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(products[i].name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        products[i].name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       const SizedBox(height: 6),
-                      Text('Остаток ${products[i].stock} / минимум ${products[i].minStock}', style: const TextStyle(color: Colors.white70)),
+                      Text(
+                        'Остаток ${products[i].stock} / минимум ${products[i].minStock}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                     ],
                   ),
                 ),
-                _MiniBadge(icon: Icons.warehouse_outlined, label: stockStatus(products[i])),
+                _MiniBadge(
+                  icon: Icons.warehouse_outlined,
+                  label: stockStatus(products[i]),
+                ),
               ],
             ),
           ),
@@ -1024,9 +1303,16 @@ class _PageShell extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               ),
@@ -1054,7 +1340,8 @@ class _HeroSummary extends StatelessWidget {
         children: [
           const _SectionTitle(
             title: 'Сегодня в работе',
-            subtitle: 'Оперативный блок с главным фокусом по продажам и остаткам.',
+            subtitle:
+                'Оперативный блок с главным фокусом по продажам и остаткам.',
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -1075,28 +1362,42 @@ class _HeroSummary extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Выручка за период', style: TextStyle(color: Colors.white70)),
+                    const Text(
+                      'Выручка за период',
+                      style: TextStyle(color: Colors.white70),
+                    ),
                     const SizedBox(height: 8),
-                    Text(money(stats.totalSales), style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
+                    Text(
+                      money(stats.totalSales),
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    Text('Неоплаченных заказов: ${stats.unpaidOrdersCount}', style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      'Неоплаченных заказов: ${stats.unpaidOrdersCount}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               );
               final sideCards = Column(
                 children: [
-                  _CompactInfo(title: 'Низкий остаток', value: '${stats.lowStockCount}'),
+                  _CompactInfo(
+                    title: 'Низкий остаток',
+                    value: '${stats.lowStockCount}',
+                  ),
                   const SizedBox(height: 10),
-                  _CompactInfo(title: 'Всего заказов', value: '${stats.ordersCount}'),
+                  _CompactInfo(
+                    title: 'Всего заказов',
+                    value: '${stats.ordersCount}',
+                  ),
                 ],
               );
               if (vertical) {
                 return Column(
-                  children: [
-                    salesCard,
-                    const SizedBox(height: 12),
-                    sideCards,
-                  ],
+                  children: [salesCard, const SizedBox(height: 12), sideCards],
                 );
               }
               return Row(
@@ -1129,28 +1430,53 @@ class _ProductTile extends StatelessWidget {
           final info = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              Text(
+                product.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   _MiniBadge(icon: Icons.sell_outlined, label: product.brand),
-                  _MiniBadge(icon: Icons.tag_outlined, label: product.sku ?? 'Без SKU'),
-                  _MiniBadge(icon: Icons.inventory_2_outlined, label: stockStatus(product)),
+                  _MiniBadge(
+                    icon: Icons.tag_outlined,
+                    label: product.sku ?? 'Без SKU',
+                  ),
+                  _MiniBadge(
+                    icon: Icons.inventory_2_outlined,
+                    label: stockStatus(product),
+                  ),
                 ],
               ),
             ],
           );
           final aside = Column(
-            crossAxisAlignment: vertical ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+            crossAxisAlignment: vertical
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.end,
             children: [
-              Text(money(product.salePrice), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              Text(
+                money(product.salePrice),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
               const SizedBox(height: 6),
-              Text('В наличии: ${product.stock}', style: const TextStyle(color: Colors.white70)),
+              Text(
+                'В наличии: ${product.stock}',
+                style: const TextStyle(color: Colors.white70),
+              ),
               const SizedBox(height: 10),
               FilledButton.tonal(
-                onPressed: product.stock <= 0 ? null : () => context.read<OrderDraftCubit>().addProduct(product),
+                onPressed: product.stock <= 0
+                    ? null
+                    : () => context.read<OrderDraftCubit>().addProduct(product),
                 child: const Text('Добавить'),
               ),
             ],
@@ -1158,11 +1484,7 @@ class _ProductTile extends StatelessWidget {
           if (vertical) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                info,
-                const SizedBox(height: 14),
-                aside,
-              ],
+              children: [info, const SizedBox(height: 14), aside],
             );
           }
           return Row(
@@ -1192,9 +1514,18 @@ class _DraftLineTile extends StatelessWidget {
           final info = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(line.product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              Text(
+                line.product.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 6),
-              Text('${money(line.product.salePrice)} за шт.', style: const TextStyle(color: Colors.white70)),
+              Text(
+                '${money(line.product.salePrice)} за шт.',
+                style: const TextStyle(color: Colors.white70),
+              ),
             ],
           );
           final controls = Wrap(
@@ -1202,16 +1533,26 @@ class _DraftLineTile extends StatelessWidget {
             spacing: 4,
             children: [
               IconButton(
-                onPressed: () => context.read<OrderDraftCubit>().setQty(line.product.id, line.quantity - 1),
+                onPressed: () => context.read<OrderDraftCubit>().setQty(
+                  line.product.id,
+                  line.quantity - 1,
+                ),
                 icon: const Icon(Icons.remove_rounded),
               ),
-              Text('${line.quantity}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                '${line.quantity}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
               IconButton(
-                onPressed: () => context.read<OrderDraftCubit>().setQty(line.product.id, line.quantity + 1),
+                onPressed: () => context.read<OrderDraftCubit>().setQty(
+                  line.product.id,
+                  line.quantity + 1,
+                ),
                 icon: const Icon(Icons.add_rounded),
               ),
               IconButton(
-                onPressed: () => context.read<OrderDraftCubit>().remove(line.product.id),
+                onPressed: () =>
+                    context.read<OrderDraftCubit>().remove(line.product.id),
                 icon: const Icon(Icons.delete_outline_rounded),
               ),
             ],
@@ -1219,11 +1560,7 @@ class _DraftLineTile extends StatelessWidget {
           if (vertical) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                info,
-                const SizedBox(height: 12),
-                controls,
-              ],
+              children: [info, const SizedBox(height: 12), controls],
             );
           }
           return Row(
@@ -1255,29 +1592,45 @@ class _OrderTile extends StatelessWidget {
             final mainInfo = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(order.orderNumber, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(
+                  order.orderNumber,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(order.clientName),
                 const SizedBox(height: 4),
-                Text('${date(order.date)} • ${pStatus(order.paymentStatus)}', style: const TextStyle(color: Colors.white70)),
+                Text(
+                  '${date(order.date)} • ${pStatus(order.paymentStatus)}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
               ],
             );
             final moneyInfo = Column(
-              crossAxisAlignment: vertical ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+              crossAxisAlignment: vertical
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.end,
               children: [
-                Text(money(order.totalAmount), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                Text(
+                  money(order.totalAmount),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('Прибыль ${money(order.profit)}', style: const TextStyle(color: Color(0xFF7ED9A4))),
+                Text(
+                  'Прибыль ${money(order.profit)}',
+                  style: const TextStyle(color: Color(0xFF7ED9A4)),
+                ),
               ],
             );
             if (vertical) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  mainInfo,
-                  const SizedBox(height: 14),
-                  moneyInfo,
-                ],
+                children: [mainInfo, const SizedBox(height: 14), moneyInfo],
               );
             }
             return Row(
@@ -1305,9 +1658,15 @@ class _SectionTitle extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         const SizedBox(height: 4),
-        Text(subtitle, style: const TextStyle(color: Colors.white70, height: 1.4)),
+        Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white70, height: 1.4),
+        ),
       ],
     );
   }
@@ -1333,7 +1692,10 @@ class _CompactInfo extends StatelessWidget {
         children: [
           Text(title, style: const TextStyle(color: Colors.white70)),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
         ],
       ),
     );
@@ -1443,9 +1805,20 @@ class _EmptyPanel extends StatelessWidget {
                 child: Icon(icon, size: 30),
               ),
               const SizedBox(height: 16),
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
-              Text(subtitle, style: const TextStyle(color: Colors.white70, height: 1.4), textAlign: TextAlign.center),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white70, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -1479,7 +1852,10 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text(title, style: const TextStyle(color: Colors.white70)),
             const SizedBox(height: 6),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+            ),
             const SizedBox(height: 6),
             Text(hint, style: const TextStyle(color: Colors.white54)),
           ],
@@ -1557,9 +1933,21 @@ class _Background extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          const Positioned(top: -70, right: -40, child: _Glow(color: Color(0xFFF18B54), size: 220)),
-          const Positioned(top: 160, left: -30, child: _Glow(color: Color(0xFF6EC6CA), size: 180)),
-          const Positioned(bottom: -30, right: 30, child: _Glow(color: Color(0xFF5C7CFA), size: 190)),
+          const Positioned(
+            top: -70,
+            right: -40,
+            child: _Glow(color: Color(0xFFF18B54), size: 220),
+          ),
+          const Positioned(
+            top: 160,
+            left: -30,
+            child: _Glow(color: Color(0xFF6EC6CA), size: 180),
+          ),
+          const Positioned(
+            bottom: -30,
+            right: 30,
+            child: _Glow(color: Color(0xFF5C7CFA), size: 190),
+          ),
           child,
         ],
       ),
@@ -1618,7 +2006,3 @@ class _Logo extends StatelessWidget {
     );
   }
 }
-
-
-
-

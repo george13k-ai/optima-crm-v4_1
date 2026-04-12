@@ -243,31 +243,52 @@ class OrderDraftCubit extends Cubit<OrderDraftState> {
     required List<Client> clients,
   }) {
     final imported = parseImportedOrder(raw);
+    // key → DraftLine; key is product.id for catalog hits, lookup text for ad-hoc
     final aggregated = <String, DraftLine>{};
-    final missingProducts = <String>[];
+    var catalogCount = 0;
+    var adHocCount = 0;
 
     for (final importedLine in imported.lines) {
-      final product = findMatchingProduct(products, importedLine.lookup);
-      if (product == null) {
-        missingProducts.add(importedLine.lookup);
-        continue;
+      final catalogProduct = findMatchingProduct(products, importedLine.lookup);
+
+      if (catalogProduct != null) {
+        // Found in catalog — respect stock limits and use catalog prices
+        catalogCount++;
+        final current = aggregated[catalogProduct.id];
+        final requestedQty = (current?.quantity ?? 0) + importedLine.quantity;
+        aggregated[catalogProduct.id] = DraftLine(
+          product: catalogProduct,
+          quantity:
+              requestedQty > catalogProduct.stock
+                  ? catalogProduct.stock
+                  : requestedQty,
+        );
+      } else {
+        // Not in catalog — create an ad-hoc line directly from table data.
+        // Use the lookup string as the stable key so duplicate rows are merged.
+        adHocCount++;
+        final key = 'adhoc::${importedLine.lookup}';
+        final current = aggregated[key];
+        final mergedQty = (current?.quantity ?? 0) + importedLine.quantity;
+        final adHocProduct = Product(
+          id: key,
+          name: importedLine.lookup,
+          category: '',
+          brand: '',
+          salePrice: importedLine.salePrice ?? 0,
+          purchasePrice: importedLine.purchasePrice ?? 0,
+          // No real stock — allow any quantity from the import
+          stock: 999999,
+          minStock: 0,
+        );
+        aggregated[key] = DraftLine(product: adHocProduct, quantity: mergedQty);
       }
-      final current = aggregated[product.id];
-      final requestedQty =
-          (current?.quantity ?? 0) + importedLine.quantity;
-      aggregated[product.id] = DraftLine(
-        product: product,
-        quantity: requestedQty > product.stock ? product.stock : requestedQty,
-      );
     }
 
     final nextLines = aggregated.values.toList(growable: false);
-
     if (nextLines.isEmpty) {
-      throw FormatException(
-        missingProducts.isEmpty
-            ? 'Не удалось сопоставить ни один товар из таблицы.'
-            : 'Не найдены товары: ${missingProducts.join(', ')}',
+      throw const FormatException(
+        'Не удалось распознать ни одной позиции из таблицы.',
       );
     }
 
@@ -277,15 +298,17 @@ class OrderDraftCubit extends Cubit<OrderDraftState> {
       client: matchedClient ?? state.client,
       paymentStatus: imported.paymentStatus ?? state.paymentStatus,
       comment: imported.comment ?? state.comment,
-      error: missingProducts.isEmpty
-          ? null
-          : 'Импорт выполнен с предупреждением. Не найдены: ${missingProducts.join(', ')}',
+      error: null,
     );
 
-    final warning = missingProducts.isEmpty
-        ? ''
-        : ' Пропущено позиций: ${missingProducts.length}.';
-    return 'Из таблицы импортировано ${nextLines.length} позиций.$warning';
+    if (catalogCount == 0) {
+      return 'Импортировано ${nextLines.length} позиций из таблицы.';
+    }
+    if (adHocCount == 0) {
+      return 'Импортировано ${nextLines.length} позиций из каталога.';
+    }
+    return 'Импортировано ${nextLines.length} позиций '
+        '($catalogCount из каталога, $adHocCount из таблицы).';
   }
 
   Future<Order?> createOrder() async {
@@ -299,7 +322,9 @@ class OrderDraftCubit extends Cubit<OrderDraftState> {
     }
 
     final exceededLine = state.lines
-        .where((line) => line.quantity > line.product.stock)
+        .where((line) =>
+            !line.product.id.startsWith('adhoc::') &&
+            line.quantity > line.product.stock)
         .firstOrNull;
     if (exceededLine != null) {
       _emitState(
@@ -343,3 +368,4 @@ class OrderDraftCubit extends Cubit<OrderDraftState> {
 
   void clearCreated() => emit(const OrderDraftState());
 }
+

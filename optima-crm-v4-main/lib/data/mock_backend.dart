@@ -22,6 +22,10 @@ class MockBackend implements ProductRepository, ClientRepository, OrderRepositor
     final orderId = 'o${now.microsecondsSinceEpoch}';
 
     for (final item in input.items) {
+      // Ad-hoc lines (imported directly from a table, not in catalog) are
+      // allowed through without stock validation — their id starts with 'adhoc::'
+      if (item.productId.startsWith('adhoc::')) continue;
+
       final product = _products.where((p) => p.id == item.productId).firstOrNull;
       if (product == null) {
         throw StateError('Product ${item.productId} not found');

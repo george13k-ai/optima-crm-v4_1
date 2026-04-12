@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:crm/domain/entities/entities.dart';
 import 'package:xml/xml.dart';
@@ -7,10 +7,16 @@ class ImportedOrderLine {
   const ImportedOrderLine({
     required this.lookup,
     required this.quantity,
+    this.salePrice,
+    this.purchasePrice,
   });
 
   final String lookup;
   final int quantity;
+  /// Sale price extracted from the table (null if not present).
+  final double? salePrice;
+  /// Purchase / cost price extracted from the table (null if not present).
+  final double? purchasePrice;
 }
 
 class ImportedOrderData {
@@ -44,13 +50,16 @@ ImportedOrderData parseImportedOrder(String raw) {
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
   if (rows.isEmpty) {
-    throw const FormatException('Во вставленных данных не найдено ни одной строки.');
+    throw const FormatException(
+      'Во вставленных данных не найдено ни одной строки.',
+    );
   }
 
   final delimiter = _detectDelimiterFromRows(rows);
   final headerIndex = _findHeaderRowIndex(rows, delimiter);
-  final headerCells =
-      headerIndex == null ? const <String>[] : _splitRow(rows[headerIndex], delimiter);
+  final headerCells = headerIndex == null
+      ? const <String>[]
+      : _splitRow(rows[headerIndex], delimiter);
   final hasHeader = headerIndex != null;
   final headers = hasHeader
       ? headerCells.map(_normalizeHeaderKey).toList(growable: false)
@@ -131,7 +140,6 @@ ImportedOrderData parseImportedOrder(String raw) {
       final quantityValue = _readMappedValue(map, const [
         'qty',
         'quantity',
-        'amount',
         'count',
         'pcs',
         'pieces',
@@ -141,9 +149,43 @@ ImportedOrderData parseImportedOrder(String raw) {
         'количество',
         'шт',
       ]);
+      final salePriceValue = _readMappedValue(map, const [
+        'price',
+        'saleprice',
+        'retail',
+        'retailprice',
+        'sellingprice',
+        'цена',
+        'розница',
+        'розничная',
+        'ценапродажи',
+        'стоимость',
+        'сумма',
+        'суммазаказа',
+        'итого',
+      ]);
+      final purchasePriceValue = _readMappedValue(map, const [
+        'cost',
+        'purchaseprice',
+        'wholesale',
+        'wholesaleprice',
+        'закупка',
+        'закупочная',
+        'себестоимость',
+        'ценазакупки',
+        'себест',
+      ]);
       final quantity = _parseQuantity(quantityValue);
-      if (lookup != null && quantity != null) {
-        lines.add(ImportedOrderLine(lookup: lookup, quantity: quantity));
+      if (lookup != null &&
+          quantity != null &&
+          quantity > 0 &&
+          _looksLikeLookupCell(lookup)) {
+        lines.add(ImportedOrderLine(
+          lookup: lookup,
+          quantity: quantity,
+          salePrice: _parsePrice(salePriceValue),
+          purchasePrice: _parsePrice(purchasePriceValue),
+        ));
       }
       continue;
     }
@@ -154,7 +196,7 @@ ImportedOrderData parseImportedOrder(String raw) {
     }
   }
 
-  if (lines.isEmpty && hasHeader) {
+  if (lines.isEmpty && hasHeader && !_hasOrderColumns(headers)) {
     lines.addAll(_inferLinesFromUnknownColumns(parsedDataRows, headers));
   }
 
@@ -203,7 +245,6 @@ const _xmlQuantityAliases = <String>[
   'qty',
   'quantity',
   'count',
-  'amount',
   'pieces',
   'piece',
   'pcs',
@@ -211,6 +252,34 @@ const _xmlQuantityAliases = <String>[
   'number',
   'количество',
   'шт',
+];
+
+const _xmlSalePriceAliases = <String>[
+  'price',
+  'saleprice',
+  'retail',
+  'retailprice',
+  'sellingprice',
+  'цена',
+  'розница',
+  'розничная',
+  'ценапродажи',
+  'стоимость',
+  'сумма',
+  'суммазаказа',
+  'итого',
+];
+
+const _xmlPurchasePriceAliases = <String>[
+  'cost',
+  'purchaseprice',
+  'wholesale',
+  'wholesaleprice',
+  'закупка',
+  'закупочная',
+  'себестоимость',
+  'ценазакупки',
+  'себест',
 ];
 
 const _xmlClientAliases = <String>[
@@ -270,22 +339,14 @@ List<Uri> googleSheetsCsvUris(String raw) {
     final publishedId = segments[publishedIndex + 1];
     if (publishedId.isEmpty) return const [];
     return [
-      Uri.https(
-        'docs.google.com',
-        '/spreadsheets/d/e/$publishedId/pub',
-        {
-          'output': 'csv',
-          if (gid != null && gid.isNotEmpty) 'gid': gid,
-        },
-      ),
-      Uri.https(
-        'docs.google.com',
-        '/spreadsheets/d/e/$publishedId/pub',
-        {
-          'output': 'tsv',
-          if (gid != null && gid.isNotEmpty) 'gid': gid,
-        },
-      ),
+      Uri.https('docs.google.com', '/spreadsheets/d/e/$publishedId/pub', {
+        'output': 'csv',
+        if (gid != null && gid.isNotEmpty) 'gid': gid,
+      }),
+      Uri.https('docs.google.com', '/spreadsheets/d/e/$publishedId/pub', {
+        'output': 'tsv',
+        if (gid != null && gid.isNotEmpty) 'gid': gid,
+      }),
     ];
   }
 
@@ -293,69 +354,41 @@ List<Uri> googleSheetsCsvUris(String raw) {
   if (documentId.isEmpty) return const [];
 
   return [
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/export',
-      {
-        'format': 'csv',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/export',
-      {
-        'format': 'csv',
-        'single': 'true',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/gviz/tq',
-      {
-        'tqx': 'out:csv',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/gviz/tq',
-      {
-        'tqx': 'out:json',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/htmlview',
-      {
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/spreadsheets/d/$documentId/export',
-      {
-        'format': 'tsv',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
-    Uri.https(
-      'docs.google.com',
-      '/feeds/download/spreadsheets/Export',
-      {
-        'key': documentId,
-        'exportFormat': 'csv',
-        if (gid != null && gid.isNotEmpty) 'gid': gid,
-      },
-    ),
+    Uri.https('docs.google.com', '/spreadsheets/d/$documentId/export', {
+      'format': 'csv',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
+    Uri.https('docs.google.com', '/spreadsheets/d/$documentId/export', {
+      'format': 'csv',
+      'single': 'true',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
+    Uri.https('docs.google.com', '/spreadsheets/d/$documentId/gviz/tq', {
+      'tqx': 'out:csv',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
+    Uri.https('docs.google.com', '/spreadsheets/d/$documentId/gviz/tq', {
+      'tqx': 'out:json',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
+    Uri.https('docs.google.com', '/spreadsheets/d/$documentId/export', {
+      'format': 'tsv',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
+    Uri.https('docs.google.com', '/feeds/download/spreadsheets/Export', {
+      'key': documentId,
+      'exportFormat': 'csv',
+      if (gid != null && gid.isNotEmpty) 'gid': gid,
+    }),
   ];
 }
 
 String? normalizeImportedTablePayload(String raw) {
   final text = raw.trim();
   if (text.isEmpty) return null;
+
+  // Reject Google sign-in / access-denied HTML pages before any parsing
+  if (_looksLikeGoogleErrorPage(text)) return null;
 
   final fromGviz = _parseGoogleVisualizationBody(text);
   if (fromGviz != null && fromGviz.trim().isNotEmpty) return fromGviz.trim();
@@ -364,6 +397,19 @@ String? normalizeImportedTablePayload(String raw) {
   if (fromHtml != null && fromHtml.trim().isNotEmpty) return fromHtml.trim();
 
   return text;
+}
+
+bool _looksLikeGoogleErrorPage(String body) {
+  final lower = body.toLowerCase();
+  if (!lower.contains('<html') && !lower.contains('<!doctype')) return false;
+  if (lower.contains('accounts.google.com')) return true;
+  if (lower.contains('servicelogin')) return true;
+  if (lower.contains('gaia_loginform')) return true;
+  if (lower.contains('access denied') || lower.contains('access_denied')) {
+    return true;
+  }
+  if (lower.contains('sign in') && lower.contains('google')) return true;
+  return false;
 }
 
 Product? findMatchingProduct(List<Product> products, String lookup) {
@@ -440,9 +486,21 @@ List<ImportedOrderLine> _extractXmlLines(XmlDocument document) {
     final map = _xmlElementToFieldMap(element);
     final lookup = _readMappedValue(map, _xmlLookupAliases);
     final quantity = _parseQuantity(_readMappedValue(map, _xmlQuantityAliases));
-    if (lookup == null || lookup.trim().isEmpty || quantity == null) continue;
+    if (lookup == null ||
+        lookup.trim().isEmpty ||
+        quantity == null ||
+        quantity <= 0 ||
+        !_looksLikeLookupCell(lookup)) {
+      continue;
+    }
 
-    lines.add(ImportedOrderLine(lookup: lookup.trim(), quantity: quantity));
+    lines.add(ImportedOrderLine(
+      lookup: lookup.trim(),
+      quantity: quantity,
+      salePrice: _parsePrice(_readMappedValue(map, _xmlSalePriceAliases)),
+      purchasePrice:
+          _parsePrice(_readMappedValue(map, _xmlPurchasePriceAliases)),
+    ));
   }
 
   return lines;
@@ -575,17 +633,48 @@ String _extractGoogleSheetDocumentId(Uri uri) {
   return '';
 }
 
+/// Finds the index of the closing `)` that matches the `(` at [openPos].
+/// Skips characters inside JSON string literals to avoid false matches.
+int _findMatchingCloseParen(String body, int openPos) {
+  var depth = 0;
+  var inString = false;
+  var escape = false;
+  for (var i = openPos; i < body.length; i++) {
+    final c = body[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (c == '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (c == '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (c == '(') {
+      depth++;
+    } else if (c == ')') {
+      depth--;
+      if (depth == 0) return i;
+    }
+  }
+  return -1;
+}
+
 String? _parseGoogleVisualizationBody(String body) {
   const marker = 'google.visualization.Query.setResponse(';
   final markerIndex = body.indexOf(marker);
   if (markerIndex < 0) return null;
 
-  final start = markerIndex + marker.length;
-  var end = body.lastIndexOf(');');
-  end = end < start ? body.lastIndexOf(')') : end;
-  if (end < start) return null;
+  // openPos points at the '(' character
+  final openPos = markerIndex + marker.length - 1;
+  final closePos = _findMatchingCloseParen(body, openPos);
+  if (closePos < openPos) return null;
 
-  final payload = body.substring(start, end).trim();
+  final payload = body.substring(openPos + 1, closePos).trim();
   if (payload.isEmpty) return null;
 
   try {
@@ -618,11 +707,13 @@ String? _parseGoogleVisualizationBody(String body) {
       final cells = row['c'];
       if (cells is! List) continue;
 
-      final normalizedCells = cells.map((cell) {
-        if (cell is! Map<String, dynamic>) return '';
-        final value = (cell['f'] ?? cell['v'] ?? '').toString();
-        return value.replaceAll('\t', ' ').replaceAll('\n', ' ').trim();
-      }).toList(growable: false);
+      final normalizedCells = cells
+          .map((cell) {
+            if (cell is! Map<String, dynamic>) return '';
+            final value = (cell['f'] ?? cell['v'] ?? '').toString();
+            return value.replaceAll('\t', ' ').replaceAll('\n', ' ').trim();
+          })
+          .toList(growable: false);
 
       resultRows.add(normalizedCells.join('\t'));
     }
@@ -636,7 +727,8 @@ String? _parseGoogleVisualizationBody(String body) {
 
 String? _parseHtmlTableBody(String body) {
   final lower = body.toLowerCase();
-  if (!lower.contains('<table') || (!lower.contains('<td') && !lower.contains('<th'))) {
+  if (!lower.contains('<table') ||
+      (!lower.contains('<td') && !lower.contains('<th'))) {
     return null;
   }
 
@@ -659,7 +751,9 @@ String? _parseHtmlTableBody(String body) {
 
     final cells = cellMatches
         .map((cellMatch) => _stripHtml(cellMatch.group(1) ?? ''))
-        .map((value) => value.replaceAll('\t', ' ').replaceAll('\n', ' ').trim())
+        .map(
+          (value) => value.replaceAll('\t', ' ').replaceAll('\n', ' ').trim(),
+        )
         .toList(growable: false);
     if (cells.every((cell) => cell.isEmpty)) continue;
     parsedRows.add(cells.join('\t'));
@@ -748,7 +842,8 @@ bool _looksLikeHeader(List<String> cells) {
 bool _hasOrderColumns(List<String> headers) {
   bool headerContains(String keyword) =>
       headers.any((h) => h == keyword || h.contains(keyword));
-  final hasProduct = headerContains('product') ||
+  final hasProduct =
+      headerContains('product') ||
       headerContains('goods') ||
       headerContains('sku') ||
       headerContains('article') ||
@@ -763,7 +858,8 @@ bool _hasOrderColumns(List<String> headers) {
       headerContains('товар') ||
       headerContains('артикул') ||
       headerContains('код');
-  final hasQty = headerContains('qty') ||
+  final hasQty =
+      headerContains('qty') ||
       headerContains('quantity') ||
       headerContains('amount') ||
       headerContains('count') ||
@@ -827,8 +923,11 @@ List<ImportedOrderLine> _inferLinesFromUnknownColumns(
   var qtyCol = _findQtyColumnByHeader(headers, numericCounts);
   qtyCol = qtyCol >= 0 ? qtyCol : _indexOfMax(numericCounts);
 
-  final hasReliableQtyColumn = qtyCol >= 0 &&
-      (_isLikelyQuantityHeader(qtyCol < headers.length ? headers[qtyCol] : '') ||
+  final hasReliableQtyColumn =
+      qtyCol >= 0 &&
+      (_isLikelyQuantityHeader(
+            qtyCol < headers.length ? headers[qtyCol] : '',
+          ) ||
           rows.length >= 2);
   if (!hasReliableQtyColumn) {
     return const <ImportedOrderLine>[];
@@ -839,8 +938,9 @@ List<ImportedOrderLine> _inferLinesFromUnknownColumns(
     textCounts: textCounts,
     exceptIndex: qtyCol,
   );
-  lookupCol =
-      lookupCol >= 0 ? lookupCol : _indexOfMax(textCounts, exceptIndex: qtyCol);
+  lookupCol = lookupCol >= 0
+      ? lookupCol
+      : _indexOfMax(textCounts, exceptIndex: qtyCol);
 
   if (lookupCol < 0 || qtyCol < 0) {
     return rows
@@ -857,7 +957,10 @@ List<ImportedOrderLine> _inferLinesFromUnknownColumns(
     final lookupHeader = lookupCol < headers.length ? headers[lookupCol] : '';
     if (_isLikelyMetaHeader(lookupHeader)) continue;
 
-    if (lookup.isNotEmpty && qty != null && _looksLikeLookupCell(lookup)) {
+    if (lookup.isNotEmpty &&
+        qty != null &&
+        qty > 0 &&
+        _looksLikeLookupCell(lookup)) {
       lines.add(ImportedOrderLine(lookup: lookup, quantity: qty));
     }
   }
@@ -882,7 +985,7 @@ ImportedOrderLine? _inferLineFromRow(List<String> cells) {
   if (qtyIndex < 0) return null;
 
   final qty = _parseQuantity(cells[qtyIndex]);
-  if (qty == null) return null;
+  if (qty == null || qty <= 0) return null;
 
   String? lookup;
   for (var i = 0; i < cells.length; i++) {
@@ -900,11 +1003,77 @@ ImportedOrderLine? _inferLineFromRow(List<String> cells) {
 bool _looksLikeLookupCell(String value) {
   final normalized = value.trim();
   if (normalized.isEmpty) return false;
+  if (normalized.length <= 1) return false;
+  if (!RegExp(r'[a-zA-Zа-яА-ЯёЁ0-9]').hasMatch(normalized)) return false;
+  if (_isLikelySummaryLookup(normalized)) return false;
   if (_parseQuantity(normalized) != null &&
       !RegExp(r'[a-zA-Zа-яА-ЯёЁ]').hasMatch(normalized)) {
     return false;
   }
   return true;
+}
+
+bool _isLikelySummaryLookup(String value) {
+  final key = value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-zа-яё0-9]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (key.isEmpty) return true;
+  final headerKey = _normalizeHeaderKey(value);
+  if (_isLikelyQuantityHeader(headerKey) || _isLikelyPriceHeader(headerKey)) {
+    return true;
+  }
+
+  const exact = <String>{
+    'итого',
+    'всего',
+    'итог',
+    'subtotal',
+    'total',
+    'grand total',
+    'summary',
+    'sum',
+    'сумма',
+    'результат',
+  };
+  if (exact.contains(key)) return true;
+
+  final words = key
+      .split(' ')
+      .where((w) => w.isNotEmpty)
+      .toList(growable: false);
+  const summaryWords = <String>{
+    'итого',
+    'всего',
+    'итог',
+    'total',
+    'subtotal',
+    'grand',
+    'summary',
+    'sum',
+    'сумма',
+    'result',
+    'qty',
+    'quantity',
+    'amount',
+    'шт',
+    'количество',
+    'кол',
+    'колво',
+  };
+  if (words.isNotEmpty && words.every(summaryWords.contains)) return true;
+
+  final startsWithSummary =
+      key.startsWith('итого') ||
+      key.startsWith('всего') ||
+      key.startsWith('итог') ||
+      key.startsWith('total') ||
+      key.startsWith('subtotal') ||
+      key.startsWith('grand total');
+  if (startsWithSummary) return true;
+
+  return false;
 }
 
 int _indexOfMax(List<int> values, {int exceptIndex = -1}) {
@@ -949,6 +1118,7 @@ int _findLookupColumnByHeader({
     var score = textCounts[i];
     if (_isLikelyProductHeader(header)) score += 5;
     if (_isLikelyMetaHeader(header)) score -= 6;
+    if (_isLikelyPriceHeader(header)) score -= 6;
 
     if (score > bestScore) {
       bestScore = score;
@@ -1013,11 +1183,33 @@ bool _isLikelyMetaHeader(String header) {
       header.contains('телефон');
 }
 
+bool _isLikelyPriceHeader(String header) {
+  if (header.isEmpty) return false;
+  return header.contains('price') ||
+      header.contains('cost') ||
+      header.contains('amount') ||
+      header.contains('sum') ||
+      header.contains('цен') ||
+      header.contains('стоим') ||
+      header.contains('сумм') ||
+      header.contains('руб');
+}
+
 int? _parseQuantity(String? value) {
   if (value == null || value.trim().isEmpty) return null;
-  final match = RegExp(r'\d+').firstMatch(value);
+  final normalized = value
+      .trim()
+      .toLowerCase()
+      .replaceAll('\u00a0', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(',', '.');
+
+  // Accept plain counts only: "3", "3 шт", "3pcs", "3 x", "3.0".
+  final match = RegExp(
+    r'^(\d+)(?:\.0+)?\s*(?:шт|штук|pcs|pieces|pc|x)?(?:[.,;:!?\s]*)$',
+  ).firstMatch(normalized);
   if (match == null) return null;
-  return int.tryParse(match.group(0)!);
+  return int.tryParse(match.group(1)!);
 }
 
 PaymentStatus? _parsePaymentStatus(String? value) {
@@ -1064,3 +1256,40 @@ String _normalizeHeaderKey(String value) => value
     .replaceAll('\u2060', '')
     .replaceAll(RegExp(r'[^a-zа-яё0-9]'), '')
     .trim();
+
+/// Parses a price value from a table cell.
+/// Handles formats: "1990", "1 990", "1990.50", "1990,50", "1 990 ₽", "1.990,00 руб."
+double? _parsePrice(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+
+  // Strip currency symbols, all letters and whitespace — keep digits and . ,
+  var s = value
+      .trim()
+      .replaceAll('\u00a0', ' ')
+      .replaceAll(RegExp(r'[₽$€£¥]'), '')
+      .replaceAll(RegExp(r'[a-zA-Zа-яА-ЯёЁ]+'), '')
+      .replaceAll(RegExp(r'\s+'), '');
+
+  if (s.isEmpty) return null;
+
+  // Determine decimal separator: if there's a comma followed by ≤2 digits
+  // at the end and no dot, treat comma as decimal point (Russian format).
+  if (s.contains(',') && !s.contains('.')) {
+    final commaIdx = s.lastIndexOf(',');
+    final afterComma = s.substring(commaIdx + 1);
+    if (afterComma.length <= 2) {
+      s = s.replaceAll(',', '.');
+    } else {
+      // Thousand separator comma (e.g. "1,990")
+      s = s.replaceAll(',', '');
+    }
+  } else {
+    // Remove thousand-separator commas before a dot (e.g. "1,990.00")
+    s = s.replaceAll(RegExp(r',(?=\d{3})'), '');
+    s = s.replaceAll(',', '');
+  }
+
+  final result = double.tryParse(s);
+  if (result == null || result < 0) return null;
+  return result;
+}

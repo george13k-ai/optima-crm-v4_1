@@ -2,7 +2,7 @@ name: crm
 
 description: "Wholesale CRM mobile app"
 publish_to: 'none'
-version: 3.0.0+3
+version: 3.0.0+17
 
 environment:
   sdk: ^3.11.4

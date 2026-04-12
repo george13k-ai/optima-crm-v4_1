@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('parses tab-separated sheet rows with headers', () async {
-    const raw = 'Client\tProduct\tQty\tPayment\n'
+    const raw =
+        'Client\tProduct\tQty\tPayment\n'
         'Tech Store\tiPhone 14 128GB\t2\tPaid\n'
         'Tech Store\tSKU-004\t3\tPaid';
 
@@ -16,8 +17,14 @@ void main() {
 
     expect(imported.clientName, 'Tech Store');
     expect(imported.paymentStatus, isNotNull);
-    expect(findMatchingClient(clients, imported.clientName)?.name, 'Tech Store');
-    expect(findMatchingProduct(products, imported.lines.first.lookup)?.id, 'p1');
+    expect(
+      findMatchingClient(clients, imported.clientName)?.name,
+      'Tech Store',
+    );
+    expect(
+      findMatchingProduct(products, imported.lines.first.lookup)?.id,
+      'p1',
+    );
     expect(findMatchingProduct(products, imported.lines.last.lookup)?.id, 'p4');
     expect(imported.lines.first.quantity, 2);
   });
@@ -33,7 +40,8 @@ void main() {
   });
 
   test('infers lookup and quantity for unknown headers', () {
-    const raw = 'Position,Units,Client\n'
+    const raw =
+        'Position,Units,Client\n'
         'SKU-004,3,Tech Store\n'
         'Galaxy S24,1,Tech Store';
 
@@ -45,7 +53,8 @@ void main() {
   });
 
   test('infers row when quantity is not in second column', () {
-    const raw = 'order id,product,price,qty\n'
+    const raw =
+        'order id,product,price,qty\n'
         '1001,AirPods Pro,19990,2\n'
         '1002,Galaxy S24,74990,1';
 
@@ -56,8 +65,46 @@ void main() {
     expect(imported.lines.first.quantity, 2);
   });
 
+  test('skips summary rows like itogo/total', () {
+    const raw =
+        'Product,Qty\n'
+        'AirPods Pro,2\n'
+        'Итого,2\n'
+        'TOTAL,2\n'
+        'Galaxy S24,1';
+
+    final imported = parseImportedOrder(raw);
+
+    expect(imported.lines.length, 2);
+    expect(imported.lines.first.lookup, 'AirPods Pro');
+    expect(imported.lines.last.lookup, 'Galaxy S24');
+  });
+
+  test('skips malformed lookup values from html artifacts', () {
+    const raw =
+        'Product\tQty\n'
+        '}\t5\n'
+        'SKU-004\t3';
+
+    final imported = parseImportedOrder(raw);
+
+    expect(imported.lines.length, 1);
+    expect(imported.lines.first.lookup, 'SKU-004');
+    expect(imported.lines.first.quantity, 3);
+  });
+
+  test('does not infer fake rows when known qty column is empty', () {
+    const raw =
+        'Product,Qty,Price\n'
+        'GEEK BAR 911 18000,,1990\n'
+        'GEEK BAR 911 25000,,2190';
+
+    expect(() => parseImportedOrder(raw), throwsA(isA<FormatException>()));
+  });
+
   test('finds header after title rows', () {
-    const raw = 'CRM отчет,,,,\n'
+    const raw =
+        'CRM отчет,,,,\n'
         'Обновлено: сегодня,,,,\n'
         'Товар,Количество,Клиент\n'
         'SKU-004,3,Tech Store\n'
@@ -100,7 +147,8 @@ void main() {
   });
 
   test('parses google csv payload with bom and quoted commas', () {
-    const raw = '\ufeffТовар,Количество,Клиент\n'
+    const raw =
+        '\ufeffТовар,Количество,Клиент\n'
         '"iPhone 14, 128GB",2,Tech Store\n'
         'SKU-004,3,Tech Store';
 
@@ -114,7 +162,8 @@ void main() {
   });
 
   test('normalizes google visualization json response', () {
-    const body = 'google.visualization.Query.setResponse({'
+    const body =
+        'google.visualization.Query.setResponse({'
         '"table":{"cols":[{"label":"Товар"},{"label":"Количество"}],'
         '"rows":[{"c":[{"v":"SKU-004"},{"v":3}]},{"c":[{"v":"Galaxy S24"},{"v":1}]}]}});';
 
@@ -127,7 +176,8 @@ void main() {
   });
 
   test('normalizes html table response', () {
-    const body = '<html><body><table>'
+    const body =
+        '<html><body><table>'
         '<tr><th>Товар</th><th>Количество</th></tr>'
         '<tr><td>AirPods Pro</td><td>2</td></tr>'
         '</table></body></html>';
@@ -141,7 +191,8 @@ void main() {
   });
 
   test('throws clear message when no product and quantity columns', () {
-    const raw = 'ID,Имя клиента,Компания\n'
+    const raw =
+        'ID,Имя клиента,Компания\n'
         '1,Иван,ООО Технологии';
 
     expect(
