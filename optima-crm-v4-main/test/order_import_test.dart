@@ -32,6 +32,30 @@ void main() {
     expect(imported.lines.last.quantity, 2);
   });
 
+  test('infers lookup and quantity for unknown headers', () {
+    const raw = 'Position,Units,Client\n'
+        'SKU-004,3,Tech Store\n'
+        'Galaxy S24,1,Tech Store';
+
+    final imported = parseImportedOrder(raw);
+
+    expect(imported.lines.length, 2);
+    expect(imported.lines.first.lookup, 'SKU-004');
+    expect(imported.lines.first.quantity, 3);
+  });
+
+  test('infers row when quantity is not in second column', () {
+    const raw = 'order id,product,price,qty\n'
+        '1001,AirPods Pro,19990,2\n'
+        '1002,Galaxy S24,74990,1';
+
+    final imported = parseImportedOrder(raw);
+
+    expect(imported.lines.length, 2);
+    expect(imported.lines.first.lookup, 'AirPods Pro');
+    expect(imported.lines.first.quantity, 2);
+  });
+
   test('finds header after title rows', () {
     const raw = 'CRM отчет,,,,\n'
         'Обновлено: сегодня,,,,\n'

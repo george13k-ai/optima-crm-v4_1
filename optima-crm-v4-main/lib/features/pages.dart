@@ -68,7 +68,7 @@ class LoginPage extends StatelessWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: const [
-                          _MiniBadge(icon: Icons.table_chart_outlined, label: 'Импорт XML'),
+                          _MiniBadge(icon: Icons.table_chart_outlined, label: 'Импорт Google Sheets'),
                           _MiniBadge(icon: Icons.inventory_2_outlined, label: 'Остатки и SKU'),
                           _MiniBadge(icon: Icons.receipt_long_outlined, label: 'Заказы и прибыль'),
                         ],
@@ -326,7 +326,7 @@ class CreateOrderPage extends StatelessWidget {
                       children: [
                         const _SectionTitle(
                           title: 'Импорт заказа',
-                          subtitle: 'Импортируйте XML файл или вставьте строки таблицы вручную.',
+                          subtitle: 'Импортируйте публичную Google Sheets ссылку, XML/XLSX файл или вставьте строки таблицы.',
                         ),
                         const SizedBox(height: 14),
                         Wrap(
@@ -336,7 +336,7 @@ class CreateOrderPage extends StatelessWidget {
                             FilledButton.tonalIcon(
                               onPressed: () => _showImportDialog(context),
                               icon: const Icon(Icons.content_paste_go_rounded),
-                              label: const Text('Импорт XML / таблицы'),
+                              label: const Text('Импорт ссылки / файла'),
                             ),
                             OutlinedButton.icon(
                               onPressed: () => context.go('/products'),
@@ -386,7 +386,7 @@ class CreateOrderPage extends StatelessWidget {
                         ? const _EmptyPanel(
                             icon: Icons.shopping_cart_outlined,
                             title: 'Черновик пока пуст',
-                            subtitle: 'Добавьте товары вручную или импортируйте XML/таблицу.',
+                            subtitle: 'Добавьте товары вручную или импортируйте Google Sheets/XML/таблицу.',
                           )
                         : ListView.separated(
                             padding: EdgeInsets.zero,
@@ -456,7 +456,7 @@ class CreateOrderPage extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).pop('__pick_import_file__'),
             icon: const Icon(Icons.upload_file_rounded),
-            label: const Text('Файл XML/XLS'),
+            label: const Text('Файл XML/XLS/XLSX'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -496,7 +496,7 @@ class CreateOrderPage extends StatelessWidget {
       var importPayload = importInput.trim();
 
       // If user pasted a Google Sheets URL, fetch the data first
-      final sheetUrls = googleSheetsCsvUris(importPayload);
+      final sheetUrls = await _buildGoogleSheetCandidateUrls(importPayload);
       if (sheetUrls.isNotEmpty) {
         final fetched = await _fetchGoogleSheetPayload(sheetUrls);
         if (fetched != null && fetched.trim().isNotEmpty) {
@@ -631,21 +631,34 @@ class CreateOrderPage extends StatelessWidget {
   }
 
   Future<String?> _fetchGoogleSheetPayload(List<Uri> urls) async {
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-      followRedirects: true,
-      maxRedirects: 5,
-    ));
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 12),
+        receiveTimeout: const Duration(seconds: 18),
+        followRedirects: true,
+        maxRedirects: 6,
+        responseType: ResponseType.plain,
+        headers: const {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+          'Accept':
+              'text/csv,text/tab-separated-values,text/plain,application/json,text/html;q=0.9,*/*;q=0.8',
+        },
+      ),
+    );
 
     for (final url in urls) {
       try {
         final response = await dio.getUri<String>(
           url,
-          options: Options(responseType: ResponseType.plain),
+          options: Options(
+            validateStatus: (status) =>
+                status != null && status >= 200 && status < 500,
+          ),
         );
-        final body = response.data;
-        if (body == null || body.trim().isEmpty) continue;
+        final body = response.data?.trim();
+        if (body == null || body.isEmpty) continue;
+        if (_looksLikeGoogleSignInPage(body)) continue;
 
         final normalized = normalizeImportedTablePayload(body);
         if (normalized != null && normalized.trim().isNotEmpty) {
@@ -658,6 +671,134 @@ class CreateOrderPage extends StatelessWidget {
       }
     }
     return null;
+  }
+
+  Future<List<Uri>> _buildGoogleSheetCandidateUrls(String input) async {
+    final urls = <Uri>[];
+    final seen = <String>{};
+
+    void addAll(Iterable<Uri> items) {
+      for (final item in items) {
+        if (seen.add(item.toString())) {
+          urls.add(item);
+        }
+      }
+    }
+
+    addAll(googleSheetsCsvUris(input));
+
+    final parsed = _parseGoogleLikeUri(input);
+    if (parsed == null) return urls;
+    if (!_isGoogleSheetHost(parsed.host)) return urls;
+
+    final docId = _extractGoogleSheetDocId(parsed);
+    if (docId.isEmpty) return urls;
+
+    addAll(googleSheetsCsvUris('https://docs.google.com/spreadsheets/d/$docId/edit'));
+
+    final gid = _extractGidFromUri(parsed);
+    if (gid != null && gid.isNotEmpty) {
+      addAll(
+        googleSheetsCsvUris(
+          'https://docs.google.com/spreadsheets/d/$docId/edit?gid=$gid',
+        ),
+      );
+    }
+
+    final discoveredGids = await _discoverGoogleSheetGids(docId);
+    for (final discoveredGid in discoveredGids) {
+      addAll(
+        googleSheetsCsvUris(
+          'https://docs.google.com/spreadsheets/d/$docId/edit?gid=$discoveredGid',
+        ),
+      );
+    }
+
+    return urls;
+  }
+
+  Future<List<String>> _discoverGoogleSheetGids(String docId) async {
+    final htmlUri = Uri.https(
+      'docs.google.com',
+      '/spreadsheets/d/$docId/htmlview',
+    );
+
+    try {
+      final response = await Dio().getUri<String>(
+        htmlUri,
+        options: Options(
+          responseType: ResponseType.plain,
+          followRedirects: true,
+          validateStatus: (status) => status != null && status >= 200 && status < 400,
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+            'Accept': 'text/html,*/*;q=0.8',
+          },
+        ),
+      );
+      final html = response.data;
+      if (html == null || html.isEmpty) return const [];
+
+      final gids = <String>{};
+      for (final match in RegExp(r'gid=([0-9]+)').allMatches(html)) {
+        final gid = match.group(1);
+        if (gid != null && gid.isNotEmpty) gids.add(gid);
+      }
+      return gids.toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Uri? _parseGoogleLikeUri(String input) {
+    final trimmed = input.trim();
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme) return parsed;
+
+    if (trimmed.startsWith('docs.google.com/') ||
+        trimmed.startsWith('drive.google.com/')) {
+      return Uri.tryParse('https://$trimmed');
+    }
+    if (trimmed.startsWith('//docs.google.com/') ||
+        trimmed.startsWith('//drive.google.com/')) {
+      return Uri.tryParse('https:$trimmed');
+    }
+    return parsed;
+  }
+
+  bool _isGoogleSheetHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized.contains('docs.google.com') ||
+        normalized.contains('drive.google.com');
+  }
+
+  String _extractGoogleSheetDocId(Uri uri) {
+    final segments = uri.pathSegments;
+    final docIndex = segments.indexOf('d');
+    if (docIndex >= 0 && docIndex + 1 < segments.length) {
+      return segments[docIndex + 1];
+    }
+    return uri.queryParameters['id'] ?? '';
+  }
+
+  String? _extractGidFromUri(Uri uri) {
+    final queryGid = uri.queryParameters['gid'];
+    if (queryGid != null && queryGid.isNotEmpty) return queryGid;
+
+    final fragment = uri.fragment;
+    if (fragment.contains('gid=')) {
+      final gid = fragment.split('gid=').last.split('&').first;
+      if (gid.isNotEmpty) return gid;
+    }
+    return null;
+  }
+
+  bool _looksLikeGoogleSignInPage(String body) {
+    final lower = body.toLowerCase();
+    return lower.contains('accounts.google.com') ||
+        lower.contains('servicelogin') ||
+        lower.contains('sign in') && lower.contains('google');
   }
 
   Widget _summaryRow(String label, String value) {

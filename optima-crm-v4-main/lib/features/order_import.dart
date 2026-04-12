@@ -58,6 +58,7 @@ ImportedOrderData parseImportedOrder(String raw) {
   final dataRows = hasHeader ? rows.skip(headerIndex + 1) : rows;
 
   final lines = <ImportedOrderLine>[];
+  final parsedDataRows = <List<String>>[];
   String? clientName;
   PaymentStatus? paymentStatus;
   String? comment;
@@ -65,6 +66,7 @@ ImportedOrderData parseImportedOrder(String raw) {
   for (final row in dataRows) {
     final cells = _splitRow(row, delimiter);
     if (cells.every((cell) => cell.isEmpty)) continue;
+    parsedDataRows.add(cells);
 
     if (hasHeader) {
       final map = <String, String>{};
@@ -146,12 +148,14 @@ ImportedOrderData parseImportedOrder(String raw) {
       continue;
     }
 
-    if (cells.length < 2) continue;
-    final lookup = cells.first.trim();
-    final quantity = _parseQuantity(cells[1]);
-    if (lookup.isNotEmpty && quantity != null) {
-      lines.add(ImportedOrderLine(lookup: lookup, quantity: quantity));
+    final inferred = _inferLineFromRow(cells);
+    if (inferred != null) {
+      lines.add(inferred);
     }
+  }
+
+  if (lines.isEmpty && hasHeader) {
+    lines.addAll(_inferLinesFromUnknownColumns(parsedDataRows, headers));
   }
 
   if (lines.isEmpty && hasHeader && !_hasOrderColumns(headers)) {
@@ -792,6 +796,223 @@ String? _readMappedValue(Map<String, String> map, List<String> aliases) {
   return null;
 }
 
+List<ImportedOrderLine> _inferLinesFromUnknownColumns(
+  List<List<String>> rows,
+  List<String> headers,
+) {
+  if (rows.isEmpty) return const <ImportedOrderLine>[];
+
+  var maxCols = 0;
+  for (final row in rows) {
+    if (row.length > maxCols) maxCols = row.length;
+  }
+  if (maxCols == 0) return const <ImportedOrderLine>[];
+
+  final numericCounts = List<int>.filled(maxCols, 0);
+  final textCounts = List<int>.filled(maxCols, 0);
+
+  for (final row in rows) {
+    for (var i = 0; i < row.length; i++) {
+      final cell = row[i].trim();
+      if (cell.isEmpty) continue;
+      if (_parseQuantity(cell) != null) {
+        numericCounts[i]++;
+      }
+      if (_looksLikeLookupCell(cell)) {
+        textCounts[i]++;
+      }
+    }
+  }
+
+  var qtyCol = _findQtyColumnByHeader(headers, numericCounts);
+  qtyCol = qtyCol >= 0 ? qtyCol : _indexOfMax(numericCounts);
+
+  final hasReliableQtyColumn = qtyCol >= 0 &&
+      (_isLikelyQuantityHeader(qtyCol < headers.length ? headers[qtyCol] : '') ||
+          rows.length >= 2);
+  if (!hasReliableQtyColumn) {
+    return const <ImportedOrderLine>[];
+  }
+
+  var lookupCol = _findLookupColumnByHeader(
+    headers: headers,
+    textCounts: textCounts,
+    exceptIndex: qtyCol,
+  );
+  lookupCol =
+      lookupCol >= 0 ? lookupCol : _indexOfMax(textCounts, exceptIndex: qtyCol);
+
+  if (lookupCol < 0 || qtyCol < 0) {
+    return rows
+        .map(_inferLineFromRow)
+        .whereType<ImportedOrderLine>()
+        .toList(growable: false);
+  }
+
+  final lines = <ImportedOrderLine>[];
+  for (final row in rows) {
+    final lookup = lookupCol < row.length ? row[lookupCol].trim() : '';
+    final qtyRaw = qtyCol < row.length ? row[qtyCol] : '';
+    final qty = _parseQuantity(qtyRaw);
+    final lookupHeader = lookupCol < headers.length ? headers[lookupCol] : '';
+    if (_isLikelyMetaHeader(lookupHeader)) continue;
+
+    if (lookup.isNotEmpty && qty != null && _looksLikeLookupCell(lookup)) {
+      lines.add(ImportedOrderLine(lookup: lookup, quantity: qty));
+    }
+  }
+
+  if (lines.isNotEmpty) return lines;
+  return rows
+      .map(_inferLineFromRow)
+      .whereType<ImportedOrderLine>()
+      .toList(growable: false);
+}
+
+ImportedOrderLine? _inferLineFromRow(List<String> cells) {
+  if (cells.isEmpty) return null;
+
+  var qtyIndex = -1;
+  for (var i = cells.length - 1; i >= 0; i--) {
+    if (_parseQuantity(cells[i]) != null) {
+      qtyIndex = i;
+      break;
+    }
+  }
+  if (qtyIndex < 0) return null;
+
+  final qty = _parseQuantity(cells[qtyIndex]);
+  if (qty == null) return null;
+
+  String? lookup;
+  for (var i = 0; i < cells.length; i++) {
+    if (i == qtyIndex) continue;
+    final value = cells[i].trim();
+    if (!_looksLikeLookupCell(value)) continue;
+    lookup = value;
+    break;
+  }
+  if (lookup == null || lookup.isEmpty) return null;
+
+  return ImportedOrderLine(lookup: lookup, quantity: qty);
+}
+
+bool _looksLikeLookupCell(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) return false;
+  if (_parseQuantity(normalized) != null &&
+      !RegExp(r'[a-zA-Zа-яА-ЯёЁ]').hasMatch(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+int _indexOfMax(List<int> values, {int exceptIndex = -1}) {
+  var bestIndex = -1;
+  var bestValue = -1;
+  for (var i = 0; i < values.length; i++) {
+    if (i == exceptIndex) continue;
+    if (values[i] > bestValue) {
+      bestValue = values[i];
+      bestIndex = i;
+    }
+  }
+  return bestValue > 0 ? bestIndex : -1;
+}
+
+int _findQtyColumnByHeader(List<String> headers, List<int> numericCounts) {
+  var bestIndex = -1;
+  var bestNumeric = -1;
+  for (var i = 0; i < headers.length && i < numericCounts.length; i++) {
+    if (!_isLikelyQuantityHeader(headers[i])) continue;
+    if (numericCounts[i] > bestNumeric) {
+      bestNumeric = numericCounts[i];
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
+int _findLookupColumnByHeader({
+  required List<String> headers,
+  required List<int> textCounts,
+  required int exceptIndex,
+}) {
+  var bestIndex = -1;
+  var bestScore = -9999;
+
+  for (var i = 0; i < textCounts.length; i++) {
+    if (i == exceptIndex) continue;
+    if (textCounts[i] <= 0) continue;
+
+    final header = i < headers.length ? headers[i] : '';
+    var score = textCounts[i];
+    if (_isLikelyProductHeader(header)) score += 5;
+    if (_isLikelyMetaHeader(header)) score -= 6;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  return bestScore > 0 ? bestIndex : -1;
+}
+
+bool _isLikelyProductHeader(String header) {
+  if (header.isEmpty) return false;
+  return header.contains('product') ||
+      header.contains('goods') ||
+      header.contains('item') ||
+      header.contains('sku') ||
+      header.contains('article') ||
+      header.contains('name') ||
+      header.contains('товар') ||
+      header.contains('наименование') ||
+      header.contains('номенклатура') ||
+      header.contains('артикул') ||
+      header.contains('позиц');
+}
+
+bool _isLikelyQuantityHeader(String header) {
+  if (header.isEmpty) return false;
+  return header.contains('qty') ||
+      header.contains('quantity') ||
+      header.contains('amount') ||
+      header.contains('count') ||
+      header.contains('pcs') ||
+      header.contains('pieces') ||
+      header.contains('number') ||
+      header.contains('количество') ||
+      header.contains('колво') ||
+      header.contains('кол') ||
+      header.contains('шт');
+}
+
+bool _isLikelyMetaHeader(String header) {
+  if (header.isEmpty) return false;
+  return header.contains('client') ||
+      header.contains('customer') ||
+      header.contains('buyer') ||
+      header.contains('company') ||
+      header.contains('payment') ||
+      header.contains('status') ||
+      header.contains('comment') ||
+      header.contains('note') ||
+      header.contains('date') ||
+      header.contains('email') ||
+      header.contains('phone') ||
+      header.contains('клиент') ||
+      header.contains('контрагент') ||
+      header.contains('компания') ||
+      header.contains('оплата') ||
+      header.contains('статус') ||
+      header.contains('комментар') ||
+      header.contains('дата') ||
+      header.contains('почта') ||
+      header.contains('телефон');
+}
+
 int? _parseQuantity(String? value) {
   if (value == null || value.trim().isEmpty) return null;
   final match = RegExp(r'\d+').firstMatch(value);
@@ -843,4 +1064,3 @@ String _normalizeHeaderKey(String value) => value
     .replaceAll('\u2060', '')
     .replaceAll(RegExp(r'[^a-zа-яё0-9]'), '')
     .trim();
-
