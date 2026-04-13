@@ -1,0 +1,28 @@
+workflows:
+  ios-release:
+    name: iOS Release (no codesign)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: 3.41.6
+
+    scripts:
+      - name: Get Flutter dependencies
+        working_directory: optima-crm-v4-main
+        script: flutter pub get
+
+      - name: Build iOS release
+        working_directory: optima-crm-v4-main
+        script: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        working_directory: optima-crm-v4-main
+        script: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r OptimaCRM.ipa Payload
+          rm -rf Payload
+
+    artifacts:
+      - optima-crm-v4-main/OptimaCRM.ipa
