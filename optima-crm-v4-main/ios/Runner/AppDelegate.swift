@@ -7,7 +7,11 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
+    let flutterVC = FlutterViewController(project: nil, nibName: nil, bundle: nil)
+    GeneratedPluginRegistrant.register(with: flutterVC)
+    self.window = UIWindow(frame: UIScreen.main.bounds)
+    self.window!.rootViewController = flutterVC
+    self.window!.makeKeyAndVisible()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }
