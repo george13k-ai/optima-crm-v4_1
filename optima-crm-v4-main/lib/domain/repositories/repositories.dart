@@ -31,6 +31,7 @@ abstract class OrderRepository {
   Future<Order?> getOrderById(String id);
   Future<Order> createOrder(CreateOrderInput input);
   Future<Order?> updatePaymentStatus(String orderId, PaymentStatus status);
+  Future<void> deleteOrder(String id);
 }
 
 abstract class DashboardRepository {

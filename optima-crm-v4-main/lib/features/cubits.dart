@@ -88,6 +88,11 @@ class OrdersCubit extends Cubit<List<Order>> {
   final OrderRepository repo;
 
   Future<void> load() async => emit(await repo.getOrders());
+
+  Future<void> delete(String id) async {
+    await repo.deleteOrder(id);
+    emit(state.where((o) => o.id != id).toList(growable: false));
+  }
 }
 
 class DashboardCubit extends Cubit<DashboardStats?> {

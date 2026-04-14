@@ -105,4 +105,9 @@ class MockBackend implements ProductRepository, ClientRepository, OrderRepositor
     _orders[i] = _orders[i].copyWith(paymentStatus: status);
     return _orders[i];
   }
+
+  @override
+  Future<void> deleteOrder(String id) async {
+    _orders.removeWhere((o) => o.id == id);
+  }
 }

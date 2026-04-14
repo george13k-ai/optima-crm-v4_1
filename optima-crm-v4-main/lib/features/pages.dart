@@ -1070,7 +1070,47 @@ class OrderDetailsPage extends StatelessWidget {
     return _Background(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(order?.orderNumber ?? 'Заказ')),
+        appBar: AppBar(
+          title: Text(order?.orderNumber ?? 'Заказ'),
+          actions: [
+            if (order != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: 'Удалить заказ',
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Удалить заказ?'),
+                      content: Text(
+                        'Заказ ${order.orderNumber} будет удалён без возможности восстановления.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Отмена'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: const Text(
+                            'Удалить',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    final ordersCubit = context.read<OrdersCubit>();
+                    final dashCubit = context.read<DashboardCubit>();
+                    await ordersCubit.delete(order.id);
+                    await dashCubit.load();
+                    if (context.mounted) context.go('/orders');
+                  }
+                },
+              ),
+          ],
+        ),
         body: SafeArea(
           top: false,
           child: Padding(
@@ -1511,6 +1551,7 @@ class _DraftLineTile extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final vertical = constraints.maxWidth < 560;
+          final lineTotal = line.quantity * line.product.salePrice;
           final info = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1521,9 +1562,9 @@ class _DraftLineTile extends StatelessWidget {
                   fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                '${money(line.product.salePrice)} за шт.',
+                '${line.quantity} шт. × ${money(line.product.salePrice)} = ${money(lineTotal)}',
                 style: const TextStyle(color: Colors.white70),
               ),
             ],
