@@ -15,6 +15,75 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 
+// ── Document export ────────────────────────────────────────────────────────
+
+enum _DocType { invoice, bill, act }
+
+extension _DocTypeLabel on _DocType {
+  String get label => switch (this) {
+        _DocType.invoice => 'Накладная',
+        _DocType.bill => 'Счёт',
+        _DocType.act => 'Акт',
+      };
+  String get header => switch (this) {
+        _DocType.invoice => 'ТОВАРНАЯ НАКЛАДНАЯ',
+        _DocType.bill => 'СЧЁТ НА ОПЛАТУ',
+        _DocType.act => 'АКТ ВЫПОЛНЕННЫХ РАБОТ',
+      };
+}
+
+String _buildDocumentText(Order order, _DocType type) {
+  final fmt = NumberFormat('#,##0', 'ru_RU');
+  String rub(double v) => '${fmt.format(v.round())} ₽';
+  final dateStr = DateFormat('dd.MM.yyyy').format(order.date);
+  final line = '─' * 48;
+  final dline = '═' * 48;
+
+  final sb = StringBuffer();
+  sb.writeln(dline);
+  sb.writeln('  ${type.header} № ${order.orderNumber}');
+  sb.writeln(dline);
+  sb.writeln('Дата:       $dateStr');
+  sb.writeln('Поставщик:  Оптима CRM');
+  sb.writeln('Покупатель: ${order.clientName}');
+  if (order.comment != null && order.comment!.isNotEmpty) {
+    sb.writeln('Примечание: ${order.comment}');
+  }
+  sb.writeln(line);
+  sb.writeln(' №  Наименование              Кол    Цена       Сумма');
+  sb.writeln(line);
+
+  for (var i = 0; i < order.items.length; i++) {
+    final item = order.items[i];
+    final n = '${i + 1}'.padLeft(2);
+    final name = item.productName.length > 24
+        ? '${item.productName.substring(0, 22)}..'
+        : item.productName.padRight(24);
+    final qty = '${item.quantity} шт'.padLeft(5);
+    final price = rub(item.salePrice).padLeft(10);
+    final total = rub(item.lineTotal).padLeft(10);
+    sb.writeln('$n  $name$qty$price$total');
+  }
+
+  sb.writeln(line);
+  sb.writeln(
+    'Позиций: ${order.items.length}   '
+    'Кол-во: ${order.totalQuantity} шт',
+  );
+  sb.writeln('');
+  sb.writeln('  ИТОГО к оплате:  ${rub(order.totalAmount)}');
+  if (type != _DocType.bill) {
+    sb.writeln('  Себестоимость:   ${rub(order.totalCost)}');
+    sb.writeln('  Прибыль:         ${rub(order.profit)}');
+  }
+  sb.writeln(dline);
+  sb.writeln(
+    'Статус оплаты: ${order.paymentStatus == PaymentStatus.paid ? "Оплачено ✓" : "Ожидает оплаты"}',
+  );
+  sb.writeln(dline);
+  return sb.toString();
+}
+
 String money(num v) => NumberFormat.currency(
   locale: 'ru_RU',
   symbol: '₽',
@@ -1087,6 +1156,134 @@ class OrderDetailsPage extends StatelessWidget {
 
   final String id;
 
+  void _showExportSheet(BuildContext context, Order order) {
+    var selectedType = _DocType.invoice;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121A24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final text = _buildDocumentText(order, selectedType);
+          return DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (_, scrollCtrl) => Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Type selector
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: _DocType.values.map((t) {
+                      final selected = t == selectedType;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: GestureDetector(
+                            onTap: () => setState(() => selectedType = t),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                color: selected
+                                    ? const Color(0xFFF18B54)
+                                    : Colors.white.withValues(alpha: 0.07),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                t.label,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: selected
+                                      ? const Color(0xFF10151D)
+                                      : Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Document preview
+                Expanded(
+                  child: Scrollbar(
+                    child: SingleChildScrollView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.07),
+                          ),
+                        ),
+                        child: SelectableText(
+                          text,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.55,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Copy button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: text));
+                        if (ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Документ скопирован в буфер обмена'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy_rounded),
+                      label: const Text('Копировать'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = context.select(
@@ -1098,6 +1295,13 @@ class OrderDetailsPage extends StatelessWidget {
         appBar: AppBar(
           title: Text(order?.orderNumber ?? 'Заказ'),
           actions: [
+            if (order != null) ...[
+              IconButton(
+                icon: const Icon(Icons.receipt_outlined),
+                tooltip: 'Экспорт документа',
+                onPressed: () => _showExportSheet(context, order),
+              ),
+            ],
             if (order != null)
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded),

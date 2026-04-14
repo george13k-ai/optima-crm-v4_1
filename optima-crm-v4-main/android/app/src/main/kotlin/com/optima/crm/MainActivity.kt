@@ -1,4 +1,4 @@
-package com.example.crm
+package com.optima.crm
 
 import android.app.Activity
 import android.content.Intent

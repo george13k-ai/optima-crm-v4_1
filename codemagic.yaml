@@ -1,4 +1,24 @@
 workflows:
+  android-release:
+    name: Android Release APK
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      flutter: 3.41.6
+
+    scripts:
+      - name: Get Flutter dependencies
+        working_directory: optima-crm-v4-main
+        script: flutter pub get
+
+      - name: Build Android release APK
+        working_directory: optima-crm-v4-main
+        script: flutter build apk --release
+
+    artifacts:
+      - optima-crm-v4-main/build/app/outputs/flutter-apk/app-release.apk
+
   ios-release:
     name: iOS Release (no codesign)
     max_build_duration: 60
