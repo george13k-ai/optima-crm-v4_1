@@ -949,6 +949,34 @@ List<ImportedOrderLine> _inferLinesFromUnknownColumns(
         .toList(growable: false);
   }
 
+  // Find price column: prefer explicit price header, else first numeric column
+  // that's not the qty column and looks like prices (values > 1 on average).
+  int priceCol = -1;
+  for (var i = 0; i < headers.length; i++) {
+    if (i == qtyCol || i == lookupCol) continue;
+    if (_isLikelyPriceHeader(headers[i])) {
+      priceCol = i;
+      break;
+    }
+  }
+  if (priceCol < 0) {
+    // fallback: pick numeric column with largest average value (prices > qty)
+    var bestAvg = 1.0;
+    for (var i = 0; i < maxCols; i++) {
+      if (i == qtyCol || i == lookupCol) continue;
+      var sum = 0.0;
+      var cnt = 0;
+      for (final row in rows) {
+        final v = _parsePrice(i < row.length ? row[i] : null);
+        if (v != null && v > 0) { sum += v; cnt++; }
+      }
+      if (cnt > 0 && sum / cnt > bestAvg) {
+        bestAvg = sum / cnt;
+        priceCol = i;
+      }
+    }
+  }
+
   final lines = <ImportedOrderLine>[];
   for (final row in rows) {
     final lookup = lookupCol < row.length ? row[lookupCol].trim() : '';
@@ -961,7 +989,12 @@ List<ImportedOrderLine> _inferLinesFromUnknownColumns(
         qty != null &&
         qty > 0 &&
         _looksLikeLookupCell(lookup)) {
-      lines.add(ImportedOrderLine(lookup: lookup, quantity: qty));
+      final priceRaw = priceCol >= 0 && priceCol < row.length ? row[priceCol] : null;
+      lines.add(ImportedOrderLine(
+        lookup: lookup,
+        quantity: qty,
+        salePrice: _parsePrice(priceRaw),
+      ));
     }
   }
 

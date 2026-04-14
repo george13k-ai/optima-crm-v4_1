@@ -38,15 +38,15 @@ class Product extends Equatable {
     return ProductAvailabilityStatus.inStock;
   }
 
-  Product copyWith({int? stock, bool? isNew}) {
+  Product copyWith({int? stock, bool? isNew, double? salePrice, double? purchasePrice}) {
     return Product(
       id: id,
       sku: sku,
       name: name,
       category: category,
       brand: brand,
-      salePrice: salePrice,
-      purchasePrice: purchasePrice,
+      salePrice: salePrice ?? this.salePrice,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
       stock: stock ?? this.stock,
       minStock: minStock,
       isNew: isNew ?? this.isNew,

@@ -257,12 +257,22 @@ class OrderDraftCubit extends Cubit<OrderDraftState> {
       final catalogProduct = findMatchingProduct(products, importedLine.lookup);
 
       if (catalogProduct != null) {
-        // Found in catalog — respect stock limits and use catalog prices
+        // Found in catalog — use imported price if provided, else catalog price
         catalogCount++;
         final current = aggregated[catalogProduct.id];
         final requestedQty = (current?.quantity ?? 0) + importedLine.quantity;
+        final importedSale = importedLine.salePrice;
+        final importedCost = importedLine.purchasePrice;
+        final product = (importedSale != null && importedSale > 0)
+            ? catalogProduct.copyWith(
+                salePrice: importedSale,
+                purchasePrice: (importedCost != null && importedCost > 0)
+                    ? importedCost
+                    : null,
+              )
+            : catalogProduct;
         aggregated[catalogProduct.id] = DraftLine(
-          product: catalogProduct,
+          product: product,
           quantity:
               requestedQty > catalogProduct.stock
                   ? catalogProduct.stock

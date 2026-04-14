@@ -117,45 +117,70 @@ class ShellScaffold extends StatelessWidget {
         extendBody: true,
         bottomNavigationBar: SafeArea(
           minimum: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: NavigationBar(
-                height: 76,
-                backgroundColor: const Color(0xFF0F1823).withValues(alpha: 0.9),
-                selectedIndex: index,
-                onDestinationSelected: (i) => context.go(
-                  [
-                    '/dashboard',
-                    '/products',
-                    '/orders',
-                    '/clients',
-                    '/stock',
-                  ][i],
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: const Color(0xFF0F1823).withValues(alpha: 0.9),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: NavigationBarTheme(
+                  data: NavigationBarThemeData(
+                    labelTextStyle: WidgetStateProperty.resolveWith(
+                      (states) => TextStyle(
+                        fontSize: 11,
+                        height: 1.2,
+                        fontWeight: states.contains(WidgetState.selected)
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: states.contains(WidgetState.selected)
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  child: NavigationBar(
+                    height: 68,
+                    backgroundColor: Colors.transparent,
+                    selectedIndex: index,
+                    onDestinationSelected: (i) => context.go(
+                      [
+                        '/dashboard',
+                        '/products',
+                        '/orders',
+                        '/clients',
+                        '/stock',
+                      ][i],
+                    ),
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.space_dashboard_outlined),
+                        label: 'Главная',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.inventory_2_outlined),
+                        label: 'Товары',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.receipt_long_outlined),
+                        label: 'Заказы',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.people_outline),
+                        label: 'Клиенты',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.warehouse_outlined),
+                        label: 'Склад',
+                      ),
+                    ],
+                  ),
                 ),
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.space_dashboard_outlined),
-                    label: 'Главная',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.inventory_2_outlined),
-                    label: 'Товары',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    label: 'Заказы',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.people_outline),
-                    label: 'Клиенты',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.warehouse_outlined),
-                    label: 'Склад',
-                  ),
-                ],
               ),
             ),
           ),
@@ -1767,10 +1792,16 @@ class _QuickActionButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, size: 18),
             const SizedBox(width: 8),
-            Text(label),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(height: 1.2),
+            ),
           ],
         ),
       ),
@@ -1922,10 +1953,18 @@ class _MiniBadge extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+          Icon(icon, size: 14),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 12, height: 1.2),
+            ),
+          ),
         ],
       ),
     );
