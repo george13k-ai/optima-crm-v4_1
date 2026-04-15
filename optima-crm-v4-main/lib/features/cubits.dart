@@ -80,6 +80,19 @@ class ClientsCubit extends Cubit<List<Client>> {
   final ClientRepository repo;
 
   Future<void> load() async => emit(await repo.getClients());
+
+  Future<void> create({
+    required String name,
+    required String phone,
+    String? comment,
+  }) async {
+    final client = await repo.createClient(
+      name: name,
+      phone: phone,
+      comment: comment,
+    );
+    emit([client, ...state]);
+  }
 }
 
 class OrdersCubit extends Cubit<List<Order>> {
@@ -92,6 +105,14 @@ class OrdersCubit extends Cubit<List<Order>> {
   Future<void> delete(String id) async {
     await repo.deleteOrder(id);
     emit(state.where((o) => o.id != id).toList(growable: false));
+  }
+
+  Future<void> updatePaymentStatus(String id, PaymentStatus status) async {
+    final updated = await repo.updatePaymentStatus(id, status);
+    if (updated == null) return;
+    emit(
+      state.map((o) => o.id == id ? updated : o).toList(growable: false),
+    );
   }
 }
 

@@ -1415,6 +1415,33 @@ class OrderDetailsPage extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.tonal(
+                                    onPressed: () async {
+                                      final newStatus =
+                                          order.paymentStatus ==
+                                                  PaymentStatus.paid
+                                              ? PaymentStatus.unpaid
+                                              : PaymentStatus.paid;
+                                      await context
+                                          .read<OrdersCubit>()
+                                          .updatePaymentStatus(
+                                            order.id,
+                                            newStatus,
+                                          );
+                                      if (context.mounted) {
+                                        context.read<DashboardCubit>().load();
+                                      }
+                                    },
+                                    child: Text(
+                                      order.paymentStatus == PaymentStatus.paid
+                                          ? 'Снять оплату'
+                                          : 'Отметить оплаченным ✓',
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1470,46 +1497,133 @@ class OrderDetailsPage extends StatelessWidget {
 class ClientsPage extends StatelessWidget {
   const ClientsPage({super.key});
 
+  Future<void> _showAddClientDialog(BuildContext context) async {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final commentCtrl = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Новый клиент'),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Имя / Компания'),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: 'Телефон'),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: commentCtrl,
+                decoration: const InputDecoration(labelText: 'Комментарий (необяз.)'),
+                minLines: 2,
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final phone = phoneCtrl.text.trim();
+              if (name.isEmpty || phone.isEmpty) return;
+              await ctx.read<ClientsCubit>().create(
+                    name: name,
+                    phone: phone,
+                    comment: commentCtrl.text.trim().isEmpty
+                        ? null
+                        : commentCtrl.text.trim(),
+                  );
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: const Text('Добавить'),
+          ),
+        ],
+      ),
+    );
+
+    nameCtrl.dispose();
+    phoneCtrl.dispose();
+    commentCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ClientsCubit, List<Client>>(
-      builder: (_, clients) => _PageShell(
+      builder: (context, clients) => _PageShell(
         title: 'Клиенты',
         subtitle: 'Контактная база и компании, с которыми вы работаете.',
-        child: ListView.separated(
-          padding: const EdgeInsets.only(bottom: 124),
-          itemCount: clients.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (_, i) => _Panel(
-            child: Row(
-              children: [
-                _Avatar(
-                  initial: clients[i].name.isEmpty ? 'К' : clients[i].name[0],
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        action: IconButton(
+          onPressed: () => _showAddClientDialog(context),
+          icon: const Icon(Icons.person_add_outlined),
+          tooltip: 'Добавить клиента',
+        ),
+        child: clients.isEmpty
+            ? _EmptyPanel(
+                icon: Icons.people_outline,
+                title: 'Клиентов пока нет',
+                subtitle: 'Добавьте первого клиента нажав "+" вверху.',
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.only(bottom: 124),
+                itemCount: clients.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => _Panel(
+                  child: Row(
                     children: [
-                      Text(
-                        clients[i].name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
+                      _Avatar(
+                        initial: clients[i].name.isEmpty ? 'К' : clients[i].name[0],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        clients[i].phone,
-                        style: const TextStyle(color: Colors.white70),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              clients[i].name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              clients[i].phone,
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            if (clients[i].comment != null &&
+                                clients[i].comment!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                clients[i].comment!,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }
