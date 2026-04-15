@@ -1158,6 +1158,9 @@ class OrderDetailsPage extends StatelessWidget {
 
   void _showExportSheet(BuildContext context, Order order) {
     var selectedType = _DocType.invoice;
+    final controller = TextEditingController(
+      text: _buildDocumentText(order, selectedType),
+    );
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1167,7 +1170,6 @@ class OrderDetailsPage extends StatelessWidget {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
-          final text = _buildDocumentText(order, selectedType);
           return DraggableScrollableSheet(
             initialChildSize: 0.85,
             minChildSize: 0.5,
@@ -1195,7 +1197,10 @@ class OrderDetailsPage extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: GestureDetector(
-                            onTap: () => setState(() => selectedType = t),
+                            onTap: () => setState(() {
+                              selectedType = t;
+                              controller.text = _buildDocumentText(order, t);
+                            }),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1224,7 +1229,7 @@ class OrderDetailsPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Document preview
+                // Editable document
                 Expanded(
                   child: Scrollbar(
                     child: SingleChildScrollView(
@@ -1240,13 +1245,22 @@ class OrderDetailsPage extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.07),
                           ),
                         ),
-                        child: SelectableText(
-                          text,
+                        child: TextField(
+                          controller: controller,
+                          maxLines: null,
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,
                             height: 1.55,
                             color: Colors.white,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            filled: false,
                           ),
                         ),
                       ),
@@ -1260,7 +1274,9 @@ class OrderDetailsPage extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: text));
+                        await Clipboard.setData(
+                          ClipboardData(text: controller.text),
+                        );
                         if (ctx.mounted) {
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -1281,7 +1297,7 @@ class OrderDetailsPage extends StatelessWidget {
           );
         },
       ),
-    );
+    ).whenComplete(controller.dispose);
   }
 
   @override

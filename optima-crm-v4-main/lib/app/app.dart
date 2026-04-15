@@ -6,14 +6,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class CrmApp extends StatefulWidget {
-  const CrmApp({super.key});
+  const CrmApp({super.key, required this.mock});
+
+  final MockBackend mock;
 
   @override
   State<CrmApp> createState() => _CrmAppState();
 }
 
 class _CrmAppState extends State<CrmApp> {
-  late final mock = MockBackend();
   late final router = buildRouter();
 
   @override
@@ -31,12 +32,12 @@ class _CrmAppState extends State<CrmApp> {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => ProductsCubit(mock)..load()),
-        BlocProvider(create: (_) => ClientsCubit(mock)..load()),
-        BlocProvider(create: (_) => OrdersCubit(mock)..load()),
-        BlocProvider(create: (_) => StockCubit(mock)..load()),
-        BlocProvider(create: (_) => DashboardCubit(mock)..load()),
-        BlocProvider(create: (_) => OrderDraftCubit(mock)),
+        BlocProvider(create: (_) => ProductsCubit(widget.mock)..load()),
+        BlocProvider(create: (_) => ClientsCubit(widget.mock)..load()),
+        BlocProvider(create: (_) => OrdersCubit(widget.mock)..load()),
+        BlocProvider(create: (_) => StockCubit(widget.mock)..load()),
+        BlocProvider(create: (_) => DashboardCubit(widget.mock)..load()),
+        BlocProvider(create: (_) => OrderDraftCubit(widget.mock)),
       ],
       child: MaterialApp.router(
         title: 'Оптима CRM',

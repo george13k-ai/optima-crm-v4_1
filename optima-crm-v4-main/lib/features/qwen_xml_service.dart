@@ -34,8 +34,9 @@ class QwenXmlService {
               'content':
                   'You convert order payload into strict JSON. '
                       'Return JSON only with keys: clientName, paymentStatus, comment, lines. '
-                      'lines is array of objects {lookup, quantity}. '
+                      'lines is array of objects {lookup, quantity, price}. '
                       'quantity must be positive integer. '
+                      'price must be non-negative number (use 0 if unknown). '
                       'Ignore unknown fields.',
             },
             {
@@ -77,7 +78,7 @@ class QwenXmlService {
     final prompt = 'File name: $fileName\n'
         'Format: $ext\n'
         'Base64 bytes:\n$base64Data\n'
-        'Extract order lines and return JSON with keys: clientName, paymentStatus, comment, lines[{lookup,quantity}]';
+        'Extract order lines and return JSON with keys: clientName, paymentStatus, comment, lines[{lookup,quantity,price}]. price is unit price as number.';
     return tryNormalizePayload(prompt);
   }
 
@@ -115,7 +116,7 @@ class QwenXmlService {
     final comment = (decoded['comment'] ?? '').toString().trim();
 
     final rows = <String>[
-      'Client\tPayment\tComment\tProduct\tQty',
+      'Client\tPayment\tComment\tProduct\tQty\tPrice',
     ];
 
     for (final row in linesNode) {
@@ -125,8 +126,13 @@ class QwenXmlService {
       final quantity = int.tryParse(quantityRaw.toString());
       if (lookup.isEmpty || quantity == null || quantity <= 0) continue;
 
+      final priceRaw = row['price'];
+      final price = priceRaw != null
+          ? (double.tryParse(priceRaw.toString()) ?? 0.0)
+          : 0.0;
+
       rows.add(
-        '${_safeCell(clientName)}\t${_safeCell(paymentStatus)}\t${_safeCell(comment)}\t${_safeCell(lookup)}\t$quantity',
+        '${_safeCell(clientName)}\t${_safeCell(paymentStatus)}\t${_safeCell(comment)}\t${_safeCell(lookup)}\t$quantity\t$price',
       );
     }
 
